@@ -92,11 +92,11 @@ function AddRepositoryModal({ onClose, onAdded }: { onClose: () => void; onAdded
 }
 
 export default function Repositories() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [startingWorkflowId, setStartingWorkflowId] = useState<string | null>(null)
   const [workflowError, setWorkflowError] = useState<string | null>(null)
-  const navigate = useNavigate()
 
   const { data: repositories, loading, error, isMock, refetch } = useRepositories()
 
