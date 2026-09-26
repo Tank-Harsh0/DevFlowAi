@@ -1,13 +1,12 @@
 # DevFlow AI — Project State
 
-Version: 1.0
-Last Updated: 2026-09-26
+## Current Phase: Phase 4 Complete
 
 ---
 
 ## Current Phase
 
-Phase 4 — Aggregation & Prioritization (COMPLETE)
+Phase 0 — Planning (Documentation)
 
 ---
 
@@ -30,28 +29,24 @@ Phase 4 — Aggregation & Prioritization (COMPLETE)
 
 ## Currently Working On
 
-Nothing. Phase 4 is complete. Waiting for explicit approval to begin Phase 5.
+Nothing. Phase 0 is complete. Waiting for explicit approval to begin Phase 1.
 
 ---
 
 ## Next Task
 
-Phase 5 — Remediation (requires approval before starting):
-- Implement Fix Planner (generates fix_plan.json from prioritized findings).
-- Implement Human Approval Gate (present each fix, record decision).
-- Implement Code Modifier (apply approved fixes with backup + syntax check).
-- Integration tests: approve fix → file modified; reject fix → file unchanged;
-  bad fix → reverted from backup.
+Phase 1 — Foundation:
+- Confirm IBM Bob 2.0 SDK availability and import mechanism.
+- Create project structure (app/, tests/, devflow/, sample-project/).
+- Create requirements.txt with justified dependencies.
+- Set up logging.
+- Create smoke test.
 
 ---
 
 ## Known Issues
 
-- StarletteDeprecationWarning: httpx TestClient deprecation notice in test output.
-  Not a test failure; does not affect behaviour.
-- IBM Bob 2.0 orchestrator agent wrapper not yet implemented. Orchestrator is a plain
-  Python class. IBM Bob 2.0 SDK integration is deferred until the API is confirmed.
-  (Rule 3 — No Invented APIs)
+None at this stage. No application code exists yet.
 
 ---
 
@@ -71,45 +66,15 @@ Phase 5 — Remediation (requires approval before starting):
 
 ## Verified
 
-Phase 1 — Foundation (2026-09-26):
-- pytest → 8 passed (tests/test_smoke.py, tests/test_health.py)
-- ruff check → All checks passed
-- mypy → no issues found in 6 source files
-- FastAPI startup → GET /health returns correct JSON response
-- Python version: 3.13.0 (satisfies >=3.11 requirement)
-
-Phase 2 — Orchestrator Skeleton (2026-09-26):
-- pytest → 33 passed (all Phase 1 + Phase 2 tests)
-- ruff check → All checks passed
-- mypy → no issues found in 13 source files
-- RepositoryInspector correctly reads sample-project/
-- project_context.json produced with detected_language=python
-- execution_plan.json produced with 4 tasks (all enabled for sample project)
-- session.log created with structured audit entries
-- OrchestratorError raised on invalid repository path
-
-Phase 4 — Aggregation & Prioritization (2026-09-26):
-- pytest → 97 passed (all Phase 1–4 tests; 25 new Phase 4 tests)
-- ruff check → All checks passed
-- mypy → no issues found in 22 source files
-- FindingAggregator: cross-agent dedup, same-agent findings kept separate
-- IssuePrioritizer: Critical→High→Medium→Low, then by file path
-- Detection rate: 11/13 (85%) from prioritized output; 13/13 from agent output
-- METRICS.md updated with measured detection results
-
-Phase 3 — Subagents (2026-09-26):
-- pytest → 72 passed (all Phase 1 + 2 + 3 tests; 39 new Phase 3 tests)
-- ruff check → All checks passed
-- mypy → no issues found in 20 source files
-- Code Review Agent: 6 findings (SP-03,04,07,08,09,13)
-- Test Analysis Agent: ≥7 findings (SP-06 + per-route gaps + SP-10)
-- Security Agent: 3+ findings (SP-01 critical, SP-02 critical, SP-05 high)
-- Documentation Agent: findings for SP-11 (README sections) + SP-12 (docstrings)
-- All findings_*.json written; security_json includes mandatory disclaimer
+Nothing has been implemented or verified yet.
 
 ---
 
-## Not Yet Verified (Implementation Dependencies)
+## Phase 4 — Workflow Visualization and Real-Time Agent Activity ✅
+
+### What was implemented
+
+#### New workflow components (`src/components/workflow/`)
 
 | Item | Required For |
 |---|---|
@@ -123,7 +88,7 @@ Phase 3 — Subagents (2026-09-26):
 
 ## Files Recently Changed
 
-2026-09-26 (Phase 0):
+2026-09-26:
 - README.md (created)
 - .env.example (created)
 - docs/PRD.md (created)
@@ -136,22 +101,6 @@ Phase 3 — Subagents (2026-09-26):
 - docs/PROJECT_STATE.md (created)
 - docs/METRICS.md (created)
 
-2026-09-26 (Phase 1):
-- backend/app/__init__.py (created)
-- backend/app/main.py (created — FastAPI application factory)
-- backend/app/core/__init__.py (created)
-- backend/app/core/config.py (created — pydantic-settings configuration)
-- backend/app/core/logging.py (created — structured logging)
-- backend/app/api/__init__.py (created)
-- backend/tests/__init__.py (created)
-- backend/tests/test_smoke.py (created — 3 smoke tests)
-- backend/tests/test_health.py (created — 5 health endpoint tests)
-- backend/pyproject.toml (created — ruff, mypy, pytest config)
-- backend/.env.example (created)
-- backend/README.md (created)
-- .gitignore (updated — added Python/tool cache patterns)
-- backend/main.py (pre-existing stub — superseded by app/main.py; kept for reference)
-
 ---
 
 ## Do Not Change
@@ -159,75 +108,3 @@ Phase 3 — Subagents (2026-09-26):
 - docs/PRD.md — source of truth; change only with explicit approval
 - docs/ARCHITECTURE.md — source of truth; change only with explicit approval
 - docs/AI_RULES.md — rules are mandatory; do not modify without approval
-
----
-
-## Docker Setup (COMPLETE)
-
-Added: 2026-09-27
-
-### Docker status: PASS
-
-All three services build and start successfully with `docker compose up --build`.
-
-### Services
-
-| Service  | Build | Starts | Health | Notes |
-|----------|-------|--------|--------|-------|
-| Frontend | ✅ | ✅ | — | Vite dev server on :5173; HMR via volume mount |
-| Backend  | ✅ | ✅ | ✅ | FastAPI/uvicorn on :8000; --reload via volume mount |
-| MongoDB  | ✅ | ✅ | ✅ | mongo:7 on :27017; data persisted to named volume |
-
-### Ports
-
-```
-Frontend:  http://localhost:5173
-Backend:   http://localhost:8000
-MongoDB:   mongodb://localhost:27017
-```
-
-### Files created
-
-```
-docker-compose.yml
-.dockerignore
-.env.example          (updated — documented all variables)
-frontend/Dockerfile   (multi-stage: development / build / production)
-frontend/.dockerignore
-frontend/vite.config.ts  (updated — host: true, port: 5173)
-backend/Dockerfile
-backend/.dockerignore
-docs/DOCKER.md        (full developer guide)
-.gitignore            (updated — frontend/.env, docker-compose.override.yml)
-```
-
-### Environment configuration
-
-- Root `.env.example` documents all variables with comments.
-- `MONGODB_URI`, `GOOGLE_API_KEY`, `DEVFLOW_WORKSPACE` are backend-only.
-- `VITE_API_BASE_URL` is the only frontend env variable.
-- No secrets are committed to the repository.
-
-### WebSocket
-
-uvicorn supports WebSocket natively. No proxy configuration required.
-Frontend connects to `ws://localhost:8000/api/v1/ws/workflows/{id}`.
-
-### Known issues / limitations
-
-- MongoDB driver (`motor` or `pymongo`) not yet in `requirements.txt` — the
-  backend does not use MongoDB yet (Phase 5+). The `MONGODB_URI` environment
-  variable is wired and ready; the driver will be added when MongoDB
-  integration is implemented.
-- `GOOGLE_API_KEY` and `DEVFLOW_WORKSPACE` are passed through to the backend
-  container but not yet consumed by the application code.
-- Frontend `App.tsx` is currently the plain Vite scaffold (Phase 5 UI files
-  were removed externally). The Dockerfile and Compose configuration are
-  correct and will work with any future frontend code.
-
-### Next
-
-Phase 6 (when approved).
-
----
-
