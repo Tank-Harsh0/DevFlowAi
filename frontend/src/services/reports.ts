@@ -1,5 +1,3 @@
-// NOTE: Backend integration pending.
-
 import { apiClient } from './api'
 import type { Report } from '@/types/report'
 

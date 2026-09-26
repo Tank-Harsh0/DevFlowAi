@@ -24,6 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.routers import findings, reports, repositories, workflows
+from app.api.routers import ws as ws_router
+from app.api.ws_broker import ws_broker
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 
@@ -37,7 +39,11 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
+    import asyncio
     configure_logging()
+    # Capture the running event loop so the ws_broker can push events from
+    # background threads to async WebSocket handlers.
+    ws_broker.set_loop(asyncio.get_running_loop())
     logger.info("Starting %s v%s (%s)", settings.app_name, settings.app_version, settings.app_env)
     yield
     logger.info("Shutting down %s", settings.app_name)
@@ -125,6 +131,9 @@ def create_app() -> FastAPI:
     application.include_router(workflows.router,    prefix=API_PREFIX)
     application.include_router(findings.router,     prefix=API_PREFIX)
     application.include_router(reports.router,      prefix=API_PREFIX)
+    # WebSocket routes — must be registered without a prefix so the path
+    # /api/v1/ws/workflows/{id} is built correctly by the router itself.
+    application.include_router(ws_router.router,    prefix=API_PREFIX)
 
     return application
 

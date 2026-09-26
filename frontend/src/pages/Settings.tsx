@@ -135,9 +135,9 @@ export default function Settings() {
         <CardContent>
           <dl className="space-y-2">
             <MetaRow label="Version" value="0.1.0" />
-            <MetaRow label="Phase" value="Phase 2 — Core Pages" />
+            <MetaRow label="Phase" value="Phase 5 — Findings & Approval" />
             <MetaRow label="Stack" value="React 19 · TypeScript 6 · Tailwind v4 · Vite 8" />
-            <MetaRow label="Backend" value="Integration pending (Phase 3)" warn />
+            <MetaRow label="Backend" value="Connected — FastAPI 0.141 · in-memory store" />
           </dl>
         </CardContent>
       </Card>

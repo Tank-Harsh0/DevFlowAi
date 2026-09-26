@@ -1,6 +1,3 @@
-// NOTE: Backend integration pending.
-// Endpoints are inferred from docs/ARCHITECTURE.md and may change.
-
 import { apiClient } from './api'
 import type { WorkflowRun } from '@/types/workflow'
 

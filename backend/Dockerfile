@@ -16,12 +16,14 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # ── System dependencies ───────────────────────────────────────────────────────
-# curl is used by the Docker health check (see docker-compose.yml).
-# gcc + libffi-dev are needed if any transitive dependency compiles C extensions.
+# curl  — used by the Docker health check (see docker-compose.yml).
+# git   — required by GitPython to clone remote repositories.
+# gcc + libffi-dev — needed if any transitive dependency compiles C extensions.
 # Clean up apt cache in the same layer to keep the image lean.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
+        git \
         gcc \
         libffi-dev \
     && rm -rf /var/lib/apt/lists/*
@@ -45,6 +47,8 @@ EXPOSE 8000
 # overhead when no files change), but the recommended approach for production
 # is to remove --reload and run with multiple workers via gunicorn+uvicorn.
 #
-# --host 0.0.0.0  — required so the server accepts connections from other
-#                   containers (frontend) and the host machine.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# --host 0.0.0.0    — required so the server accepts connections from other
+#                     containers (frontend) and the host machine.
+# --reload-dir app  — only watch the application source directory, not cloned
+#                     repos written into /app/repos/ during workflow runs.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "app"]

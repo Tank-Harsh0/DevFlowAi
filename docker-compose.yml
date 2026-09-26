@@ -5,10 +5,12 @@
 #   frontend  — Vite dev server          http://localhost:5173
 #   backend   — FastAPI / uvicorn        http://localhost:8000
 #
-# MongoDB is NOT containerised here.
-# The backend does not yet have a database integration layer (Phase 6+).
-# When MongoDB Atlas integration is added, supply MONGODB_URI as an env var
-# in this file or in a .env file — no local MongoDB container is needed.
+# Database: MongoDB Atlas (external cloud service — NOT containerised).
+#   Do NOT add a local mongodb: service here.
+#   When Phase 6 database integration is active, supply MONGODB_URI in .env:
+#     MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<db>?...
+#   The backend container reads MONGODB_URI from the environment at runtime.
+#   Never hardcode the URI here.
 #
 # Usage:
 #   docker compose up --build     # start all services (build first)
@@ -35,8 +37,8 @@ services:
       # CORS — allows the Vite dev server to call the API from the browser.
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173}
       # Pass through any additional env vars when they become required.
-      # MONGODB_URI is not consumed by the FastAPI app yet (no DB layer).
-      # Uncomment and populate when Phase 6 MongoDB integration is added:
+      # MongoDB Atlas — NOT containerised. Supply the Atlas URI via .env.
+      # Uncomment when Phase 6 MongoDB integration is active:
       # MONGODB_URI: ${MONGODB_URI:-}
       # GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
     volumes:

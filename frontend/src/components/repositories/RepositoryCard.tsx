@@ -1,7 +1,7 @@
 import type { Repository } from '@/types/repository'
 import { WorkflowStatusBadge } from '@/components/ui/status-badge'
 import { Button } from '@/components/ui/button'
-import { GitBranch, Play, Clock, ExternalLink } from 'lucide-react'
+import { GitBranch, Play, Clock, ExternalLink, Loader2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -17,10 +17,13 @@ function formatRelativeTime(iso: string): string {
 interface RepositoryCardProps {
   repository: Repository
   onStartWorkflow?: (repo: Repository) => void
+  /** True while the workflow-start API request is in-flight for this card */
+  isStartingWorkflow?: boolean
 }
 
-export function RepositoryCard({ repository, onStartWorkflow }: RepositoryCardProps) {
+export function RepositoryCard({ repository, onStartWorkflow, isStartingWorkflow }: RepositoryCardProps) {
   const isAnalyzing = repository.status === 'analyzing'
+  const isDisabled = isAnalyzing || isStartingWorkflow
 
   return (
     <Card className="hover:border-border/80 transition-colors">
@@ -67,11 +70,13 @@ export function RepositoryCard({ repository, onStartWorkflow }: RepositoryCardPr
             <Button
               size="sm"
               variant="outline"
-              disabled={isAnalyzing}
+              disabled={isDisabled}
               onClick={() => onStartWorkflow?.(repository)}
             >
-              <Play className="w-3.5 h-3.5" />
-              Run Workflow
+              {isStartingWorkflow
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Starting…</>
+                : <><Play className="w-3.5 h-3.5" /> Run Workflow</>
+              }
             </Button>
           </div>
         </div>

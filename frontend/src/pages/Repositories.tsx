@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { EmptyState, LoadingState, ErrorState } from '@/components/ui/states'
 import { MockDataNotice } from '@/components/ui/mock-notice'
 import { useRepositories } from '@/hooks/useRepositories'
 import { repositoriesService } from '@/services/repositories'
+import { workflowsService } from '@/services/workflows'
 import type { Repository, AddRepositoryRequest } from '@/types/repository'
 
 function AddRepositoryModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
@@ -92,14 +94,27 @@ function AddRepositoryModal({ onClose, onAdded }: { onClose: () => void; onAdded
 export default function Repositories() {
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [startingWorkflowId, setStartingWorkflowId] = useState<string | null>(null)
+  const [workflowError, setWorkflowError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const { data: repositories, loading, error, isMock, refetch } = useRepositories()
 
-  const handleStartWorkflow = useCallback((_repo: Repository) => {
-    // Phase 4: connect to workflowsService.start(_repo.id) and navigate to /workflow
-    void _repo
-    alert('Backend integration pending — workflow start will be enabled in Phase 4.')
-  }, [])
+  const handleStartWorkflow = useCallback(async (repo: Repository) => {
+    setStartingWorkflowId(repo.id)
+    setWorkflowError(null)
+    try {
+      const workflow = await workflowsService.start(repo.id)
+      // Refresh repository list so the card shows "analyzing" status
+      refetch()
+      // Navigate to the Workflow page — it will show the newly created run
+      navigate(`/workflow?workflowId=${workflow.id}`)
+    } catch (err) {
+      setWorkflowError(err instanceof Error ? err.message : 'Failed to start workflow')
+    } finally {
+      setStartingWorkflowId(null)
+    }
+  }, [navigate, refetch])
 
   const filtered = repositories.filter(
     (r) =>
@@ -137,6 +152,20 @@ export default function Repositories() {
           </Button>
         </div>
 
+        {/* Workflow start error */}
+        {workflowError && (
+          <div className="p-3 rounded-md bg-error/10 border border-error/20 flex items-center justify-between gap-3">
+            <p className="text-xs text-error">{workflowError}</p>
+            <button
+              type="button"
+              className="text-xs text-error/70 hover:text-error underline shrink-0"
+              onClick={() => setWorkflowError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* States */}
         {loading && <LoadingState message="Loading repositories..." />}
 
@@ -170,7 +199,8 @@ export default function Repositories() {
               <RepositoryCard
                 key={repo.id}
                 repository={repo}
-                onStartWorkflow={handleStartWorkflow}
+                onStartWorkflow={(r) => void handleStartWorkflow(r)}
+                isStartingWorkflow={startingWorkflowId === repo.id}
               />
             ))}
           </div>

@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { GitBranch } from 'lucide-react'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,8 +67,19 @@ function WorkflowSelector({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Workflow() {
+  const [searchParams] = useSearchParams()
+  const workflowIdParam = searchParams.get('workflowId')
+
   const { data: workflows, loading, error, isMock, refetch } = useWorkflows()
   const [selected, setSelected] = useState<WorkflowRun | null>(null)
+
+  // When the URL carries a workflowId (e.g. navigated from Repositories after
+  // starting a run), pre-select that workflow once the list has loaded.
+  useEffect(() => {
+    if (!workflowIdParam || !workflows.length) return
+    const target = workflows.find((w) => w.id === workflowIdParam)
+    if (target) setSelected(target)
+  }, [workflowIdParam, workflows])
 
   // Prefer an explicit selection; fall back to first running, then first overall
   const activeWorkflow =

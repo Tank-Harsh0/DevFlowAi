@@ -1,6 +1,3 @@
-// NOTE: Backend integration pending.
-// Endpoints inferred from docs/ARCHITECTURE.md.
-
 import { apiClient } from './api'
 import type { Finding } from '@/types/finding'
 
@@ -22,7 +19,7 @@ export interface RejectionPayload {
 }
 
 export const findingsService = {
-  /** List findings — supports server-side filters when backend implements them */
+  /** List findings with optional server-side filters */
   list: (filter?: FindingsFilter): Promise<Finding[]> =>
     apiClient
       .get<Finding[]>('/api/v1/findings', { params: filter })
@@ -34,21 +31,13 @@ export const findingsService = {
       .get<Finding>(`/api/v1/findings/${findingId}`)
       .then((r) => r.data),
 
-  /**
-   * Approve a finding's fix proposal.
-   * @pending — endpoint path TBC with backend developer.
-   * Expected: POST /api/v1/findings/{findingId}/approve
-   */
+  /** Approve a finding's fix proposal — POST /api/v1/findings/{id}/approve */
   approveFix: (findingId: string): Promise<Finding> =>
     apiClient
       .post<Finding>(`/api/v1/findings/${findingId}/approve`, {})
       .then((r) => r.data),
 
-  /**
-   * Reject a finding's fix proposal.
-   * @pending — endpoint path TBC with backend developer.
-   * Expected: POST /api/v1/findings/{findingId}/reject
-   */
+  /** Reject a finding's fix proposal — POST /api/v1/findings/{id}/reject */
   rejectFix: (findingId: string, reason?: string): Promise<Finding> =>
     apiClient
       .post<Finding>(`/api/v1/findings/${findingId}/reject`, { reason })

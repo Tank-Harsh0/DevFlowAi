@@ -41,6 +41,7 @@ from app.api.schemas import (
     WorkflowStatus,
 )
 from app.api.store import store
+from app.api.ws_broker import ws_broker
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -100,6 +101,34 @@ def list_workflows(repositoryId: str | None = None) -> list[WorkflowRunOut]:
     return sorted(runs, key=lambda r: r.createdAt, reverse=True)
 
 
+def _resolve_repo_path(run_id: str, url: str) -> str:
+    """Return a local filesystem path suitable for the orchestrator.
+
+    * If *url* is already a local path that exists, return it as-is.
+    * If *url* looks like a remote Git URL (http/https/git@), clone it into
+      /app/repos/<run_id> and return that path.
+
+    Raises RuntimeError on clone failure.
+    """
+    # Detect remote URLs: http(s):// or git@ SSH
+    is_remote = url.startswith(("http://", "https://", "git@", "git://", "ssh://"))
+    if not is_remote:
+        return url  # local path — hand straight through
+
+    clone_dir = Path("/app/repos") / run_id
+    clone_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Cloning %s → %s", url, clone_dir)
+    try:
+        import git  # GitPython
+        git.Repo.clone_from(url, clone_dir, depth=1)
+    except Exception as exc:
+        # Remove the (possibly partially-populated) directory so retries are clean
+        import shutil
+        shutil.rmtree(clone_dir, ignore_errors=True)
+        raise RuntimeError(f"Failed to clone {url}: {exc}") from exc
+    return str(clone_dir)
+
+
 @router.post("", response_model=WorkflowRunOut, status_code=201)
 def start_workflow(body: StartWorkflowRequest) -> WorkflowRunOut:
     """Start a new DevFlow AI workflow run for a repository."""
@@ -127,7 +156,8 @@ def start_workflow(body: StartWorkflowRequest) -> WorkflowRunOut:
     updated_repo = repo.model_copy(update={"status": "analyzing", "updatedAt": now})
     store.repositories[repo.id] = updated_repo
 
-    # Execute orchestrator in a background thread so the response is immediate
+    # Execute orchestrator in a background thread so the response is immediate.
+    # _run_orchestrator resolves GitHub URLs to a local clone path internally.
     thread = threading.Thread(
         target=_run_orchestrator,
         args=(run_id, repo.url),
@@ -203,6 +233,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
         if run is None:
             return
         updated_steps = []
+        changed_step = None
         for step in run.steps:
             if step.id == step_id:
                 update: dict[str, Any] = {"status": status}
@@ -211,13 +242,29 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
                 elif status in (WorkflowStatus.COMPLETED, WorkflowStatus.FAILED):
                     update["completedAt"] = _now()
                 update.update(kwargs)
-                updated_steps.append(step.model_copy(update=update))
+                changed_step = step.model_copy(update=update)
+                updated_steps.append(changed_step)
             else:
                 updated_steps.append(step)
-        store.workflows[run_id] = run.model_copy(update={
+        updated_run = run.model_copy(update={
             "steps": updated_steps,
             "currentStep": step_id,
             "updatedAt": _now(),
+        })
+        store.workflows[run_id] = updated_run
+        # Broadcast step change to any connected WebSocket clients.
+        if changed_step is not None:
+            ws_broker.publish(run_id, {
+                "type": "step_update",
+                "workflowId": run_id,
+                "step": changed_step.model_dump(),
+                "timestamp": _now(),
+            })
+        ws_broker.publish(run_id, {
+            "type": "workflow_update",
+            "workflowId": run_id,
+            "workflow": updated_run.model_dump(),
+            "timestamp": _now(),
         })
 
     def _set_run_status(status: WorkflowStatus, **kwargs: Any) -> None:
@@ -228,13 +275,24 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
         if status in (WorkflowStatus.COMPLETED, WorkflowStatus.FAILED):
             update["completedAt"] = _now()
         update.update(kwargs)
-        store.workflows[run_id] = run.model_copy(update=update)
+        updated_run = run.model_copy(update=update)
+        store.workflows[run_id] = updated_run
+        # Broadcast run status change to any connected WebSocket clients.
+        ws_broker.publish(run_id, {
+            "type": "workflow_update",
+            "workflowId": run_id,
+            "workflow": updated_run.model_dump(),
+            "timestamp": _now(),
+        })
 
     try:
+        # Resolve the repo path — clones GitHub URLs into /app/repos/<run_id>
+        local_path = _resolve_repo_path(run_id, repo_path)
+
         # Mark first step running
         _set_step("inspecting", WorkflowStatus.RUNNING)
 
-        orch = Orchestrator(repo_path, decisions={})
+        orch = Orchestrator(local_path, decisions={})
 
         # Monkey-patch _transition so we can update step statuses live
         original_transition = orch._transition  # noqa: SLF001
