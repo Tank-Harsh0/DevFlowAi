@@ -1,6 +1,6 @@
 # DevFlow AI — Project State
 
-## Current Phase: Phase 3 Complete
+## Current Phase: Phase 4 Complete
 
 ---
 
@@ -181,15 +181,55 @@ FastAPI CORS middleware must include this origin.
 
 ---
 
-## Phase 4 — Workflow Visualization and Real-Time Agent Activity (NOT STARTED)
+## Phase 4 — Workflow Visualization and Real-Time Agent Activity ✅
 
-Pending explicit approval.
+### What was implemented
 
-Tasks:
-- Connect "Run Workflow" button to `POST /api/v1/workflows` and navigate to Workflow page.
-- Wire `useWorkflow` individual hook to Workflow detail view.
-- Enhanced real-time step progress once WebSocket is live.
-- Human approval flow UI for `waiting_approval` step status.
+#### New workflow components (`src/components/workflow/`)
+
+| Component | Purpose |
+|-----------|---------|
+| `WorkflowHeader.tsx` | Repo name, status badge, relative start time, elapsed duration, refresh button |
+| `WorkflowSummary.tsx` | Compact stats row: stages progress, active agents, findings, tests passed, issues fixed |
+| `ConnectionStatus.tsx` | WebSocket live indicator dot (connecting / connected / disconnected / error) |
+| `ApprovalRequired.tsx` | Amber info banner shown when a step is `waiting_approval`; links to Findings |
+| `WorkflowError.tsx` | Red error banner shown when workflow `failed`; shows failed step + error message + retry |
+| `WorkflowCompletion.tsx` | Green success banner shown when `completed`; metrics summary + links to Findings + Reports |
+| `AgentGrid.tsx` | 2×2 card grid for the 4 parallel agents with status, progress bar, findings count, duration |
+| `ActivityFeed.tsx` | Scrollable timestamped activity log; ARIA live region; auto-scrolls to bottom on new items |
+
+#### `WorkflowTimeline.tsx` — rewritten
+- Full pipeline DAG: 9 stages including the parallel analysis branch
+- Each `StageNode` shows: icon, label, status icon, elapsed duration, start time, message, progress bar, error box (failed), approval callout (waiting_approval), findings badge
+- Parallel Analysis section renders inline `ParallelAgentRow` entries (dot + icon + status + findings + duration)
+
+#### `Workflow.tsx` — rewritten (Phase 4 completion)
+- 4-column responsive grid: selector (1 col) | header+timeline (2 col) | activity feed (1 col)
+- `WorkflowHeader` + `WorkflowSummary` in a combined header card
+- Status banners rendered conditionally: `ApprovalRequired` | `WorkflowError` | `WorkflowCompletion`
+- `ActivityFeed` receives all non-pending steps
+- WebSocket wired: `ConnectionStatus` shown when running + not mock
+- `WorkflowSelector` upgraded: `<nav>` landmark, `aria-current`, keyboard focus ring
+
+#### Mock event stream (`src/mocks/workflowEvents.ts`)
+- `createMockEventStream()` — dev-only simulated WebSocket events with realistic timing
+- Documents exact import/usage; never used in production code paths
+
+### Verification
+
+```
+npm run lint   → ✅ 0 errors, 0 warnings
+npm run build  → ✅ success (809 kB JS, 35.8 kB CSS)
+```
+
+Build warning: single JS chunk > 500 kB due to Recharts + vendor bundle. Will be addressed in Phase 7 (code splitting).
+
+### New endpoint (ready for backend)
+
+| Method | Endpoint | Component | Notes |
+|--------|----------|-----------|-------|
+| POST | `/api/v1/workflows` | Repositories page | "Run Workflow" flow — not yet wired in UI |
+| GET | `/api/v1/workflows/{id}` | `useWorkflow` hook | Individual workflow polling (Phase 5 detail view) |
 
 ---
 

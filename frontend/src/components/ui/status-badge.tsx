@@ -35,6 +35,7 @@ const severityConfig: Record<FindingSeverity, { label: string; classes: string }
   high:     { label: 'High',     classes: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
   medium:   { label: 'Medium',   classes: 'bg-warning/10 text-warning border-warning/20' },
   low:      { label: 'Low',      classes: 'bg-info/10 text-info border-info/20' },
+  info:     { label: 'Info',     classes: 'bg-muted text-muted-foreground border-border' },
 }
 
 interface SeverityBadgeProps {
@@ -43,7 +44,7 @@ interface SeverityBadgeProps {
 }
 
 export function SeverityBadge({ severity, className }: SeverityBadgeProps) {
-  const cfg = severityConfig[severity]
+  const cfg = severityConfig[severity] ?? severityConfig.info
   return (
     <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide', cfg.classes, className)}>
       {cfg.label}
@@ -54,10 +55,15 @@ export function SeverityBadge({ severity, className }: SeverityBadgeProps) {
 // ── Finding status badge ───────────────────────────────────────────────────
 
 const findingStatusConfig: Record<FindingStatus, { label: string; classes: string }> = {
-  open:        { label: 'Open',        classes: 'bg-error/10 text-error border-error/20' },
-  fixed:       { label: 'Fixed',       classes: 'bg-success/10 text-success border-success/20' },
-  dismissed:   { label: 'Dismissed',   classes: 'bg-muted text-muted-foreground border-border' },
-  pending_fix: { label: 'Pending Fix', classes: 'bg-warning/10 text-warning border-warning/20' },
+  open:                 { label: 'Open',                classes: 'bg-error/10 text-error border-error/20' },
+  in_review:            { label: 'In Review',           classes: 'bg-info/10 text-info border-info/20' },
+  approved:             { label: 'Approved',            classes: 'bg-success/10 text-success border-success/20' },
+  rejected:             { label: 'Rejected',            classes: 'bg-muted text-muted-foreground border-border' },
+  pending_fix:          { label: 'Pending Fix',         classes: 'bg-warning/10 text-warning border-warning/20' },
+  fixed:                { label: 'Fixed',               classes: 'bg-success/10 text-success border-success/20' },
+  verified:             { label: 'Verified',            classes: 'bg-success/10 text-success border-success/20' },
+  verification_failed:  { label: 'Verification Failed', classes: 'bg-error/10 text-error border-error/20' },
+  dismissed:            { label: 'Dismissed',           classes: 'bg-muted text-muted-foreground border-border' },
 }
 
 interface FindingStatusBadgeProps {
@@ -66,7 +72,7 @@ interface FindingStatusBadgeProps {
 }
 
 export function FindingStatusBadge({ status, className }: FindingStatusBadgeProps) {
-  const cfg = findingStatusConfig[status]
+  const cfg = findingStatusConfig[status] ?? findingStatusConfig.open
   return (
     <span className={cn('inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium', cfg.classes, className)}>
       {cfg.label}
