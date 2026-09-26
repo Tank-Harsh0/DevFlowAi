@@ -77,6 +77,17 @@ export function useApiData<T>({ fetcher, mockFallback, skip }: UseApiDataOptions
     void load()
   }, [load])
 
+  // Refetch when the browser tab becomes visible again so stale data
+  // (e.g. a running workflow) is refreshed without a polling timer.
+  useEffect(() => {
+    if (skip) return
+    function onVisible() {
+      if (document.visibilityState === 'visible') void load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [load, skip])
+
   return { data, loading, error, isMock, refetch: load }
 }
 
@@ -128,6 +139,16 @@ export function useApiItem<T>({ fetcher, mockFallback, skip }: UseApiItemOptions
   useEffect(() => {
     void load()
   }, [load])
+
+  // Refetch when the browser tab becomes visible again.
+  useEffect(() => {
+    if (skip) return
+    function onVisible() {
+      if (document.visibilityState === 'visible') void load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [load, skip])
 
   return { data, loading, error, isMock, refetch: load }
 }

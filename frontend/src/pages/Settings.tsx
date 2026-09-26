@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useTheme } from '@/hooks/useTheme'
+import { useBackendStatus } from '@/hooks/useBackendStatus'
 
 function SectionHeading({ icon: Icon, title, description }: {
   icon: React.ComponentType<{ className?: string }>
@@ -26,6 +27,7 @@ function SectionHeading({ icon: Icon, title, description }: {
 
 export default function Settings() {
   const { theme, setTheme } = useTheme()
+  const { status: backendStatus, recheck } = useBackendStatus()
   const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_BASE_URL ?? '')
 
   return (
@@ -90,10 +92,26 @@ export default function Settings() {
               <p className="text-sm font-medium text-foreground">Connection Status</p>
               <p className="text-xs text-muted-foreground mt-0.5">Backend API reachability</p>
             </div>
-            <span className="flex items-center gap-1.5 text-xs text-amber-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              Not connected
-            </span>
+            <button
+              type="button"
+              onClick={recheck}
+              className={`flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-80 transition-opacity ${
+                backendStatus === 'online'
+                  ? 'text-success'
+                  : backendStatus === 'offline'
+                  ? 'text-error'
+                  : 'text-amber-500'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                backendStatus === 'online'
+                  ? 'bg-success'
+                  : backendStatus === 'offline'
+                  ? 'bg-error'
+                  : 'bg-amber-500 animate-pulse'
+              }`} />
+              {backendStatus === 'online' ? 'Connected' : backendStatus === 'offline' ? 'Unreachable' : 'Checking…'}
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -106,7 +124,7 @@ export default function Settings() {
         <CardContent>
           <div className="p-3 rounded-md bg-muted/50 border border-border">
             <p className="text-xs text-muted-foreground">
-              Workflow configuration options will be available once backend integration is complete (Phase 3).
+              Workflow configuration options such as agent timeouts and approval thresholds will be available in a future release.
             </p>
           </div>
         </CardContent>
@@ -120,7 +138,7 @@ export default function Settings() {
         <CardContent>
           <div className="p-3 rounded-md bg-muted/50 border border-border">
             <p className="text-xs text-muted-foreground">
-              Notification settings will be available once backend integration is complete (Phase 3).
+              Email and webhook notifications will be available in a future release.
             </p>
           </div>
         </CardContent>
@@ -135,7 +153,7 @@ export default function Settings() {
         <CardContent>
           <dl className="space-y-2">
             <MetaRow label="Version" value="0.1.0" />
-            <MetaRow label="Phase" value="Phase 5 — Findings & Approval" />
+            <MetaRow label="Phase" value="Phase 7 — Frontend Integration & Production Polish" />
             <MetaRow label="Stack" value="React 19 · TypeScript 6 · Tailwind v4 · Vite 8" />
             <MetaRow label="Backend" value="Connected — FastAPI 0.141 · in-memory store" />
           </dl>
