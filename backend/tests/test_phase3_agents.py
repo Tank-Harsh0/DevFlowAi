@@ -306,28 +306,28 @@ class TestOrchestratorPhase3:
     def test_run_produces_findings_code_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "findings_code.json").exists()
 
     def test_run_produces_findings_tests_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "findings_tests.json").exists()
 
     def test_run_produces_findings_security_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "findings_security.json").exists()
 
     def test_run_produces_findings_docs_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "findings_docs.json").exists()
 
@@ -335,7 +335,7 @@ class TestOrchestratorPhase3:
         """SUBAGENT_SPEC §3 — security output must have top-level disclaimer."""
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         data = json.loads((session_dir / "findings_security.json").read_text())
         assert "disclaimer" in data, "Security output missing 'disclaimer' field"
@@ -343,14 +343,14 @@ class TestOrchestratorPhase3:
     def test_total_findings_greater_than_zero(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         assert result["raw_findings"] > 0
 
     def test_findings_json_are_valid_finding_objects(self, tmp_path, monkeypatch):
         """Each item in findings_code.json must deserialise to a valid Finding."""
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         raw = json.loads((session_dir / "findings_code.json").read_text())
         for item in raw:

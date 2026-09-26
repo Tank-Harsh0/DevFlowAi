@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import py_compile
 import shutil
-import tempfile
 from pathlib import Path
 
 from app.core.logging import get_logger

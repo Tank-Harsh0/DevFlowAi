@@ -135,22 +135,27 @@ class FixPlanner:
         count_attr: str,
     ) -> FixProposal:
         """Wrap the unchecked db write call to check the result count."""
-        # Pattern: bare call to db[...].update_one(...) / delete_one(...)
-        pattern = re.compile(
-            rf"""([ \t]*)(db\[["'][^"']+["']\]\.{operation}\s*\([^)]+\))""",
+        # Find the call start with a simple header pattern, then extract the
+        # full call by counting parentheses so multi-line args are handled.
+        header_pattern = re.compile(
+            rf"""([ \t]*)(db\[["'][^"']+["']\]\.{operation}\s*)(\()""",
             re.MULTILINE,
         )
         new_content = content
-        m = pattern.search(content)
+        m = header_pattern.search(content)
         if m:
             indent = m.group(1)
-            call = m.group(2)
+            prefix = m.group(2)          # e.g. 'db["todos"].update_one'
+            paren_start = m.start(3)     # position of the opening '('
+            # Walk forward balancing parentheses to find the full call end
+            call_end = _find_closing_paren(content, paren_start)
+            full_call = prefix + content[paren_start: call_end + 1]
             replacement = (
-                f"{indent}result = {call}\n"
+                f"{indent}result = {full_call}\n"
                 f"{indent}if result.{count_attr}_count == 0:\n"
                 f'{indent}    raise HTTPException(status_code=404, detail="Not found")'
             )
-            new_content = content[: m.start()] + replacement + content[m.end() :]
+            new_content = content[: m.start()] + replacement + content[call_end + 1 :]
 
         diff = _unified_diff(content, new_content, finding.file)
         return FixProposal(
@@ -396,6 +401,22 @@ class FixPlanner:
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
+
+def _find_closing_paren(text: str, open_pos: int) -> int:
+    """Return the index of the ')' that closes the '(' at *open_pos*.
+
+    Handles nested parentheses. Returns *open_pos* if not found.
+    """
+    depth = 0
+    for i in range(open_pos, len(text)):
+        if text[i] == "(":
+            depth += 1
+        elif text[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return open_pos  # malformed — return start as fallback
 
 
 def _unified_diff(original: str, modified: str, filename: str) -> str:

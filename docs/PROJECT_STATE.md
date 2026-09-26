@@ -7,7 +7,7 @@ Last Updated: 2026-09-26
 
 ## Current Phase
 
-Phase 4 — Aggregation & Prioritization (COMPLETE)
+Phase 5 — Remediation (COMPLETE)
 
 ---
 
@@ -25,23 +25,31 @@ Phase 4 — Aggregation & Prioritization (COMPLETE)
 - [x] docs/IMPLEMENTATION_PLAN.md created
 - [x] docs/PROJECT_STATE.md created (this file)
 - [x] docs/METRICS.md created
+- [x] FixProposal model (app/models/fix_proposal.py) — ProposalStatus enum + FixProposal Pydantic model
+- [x] Fix Planner (app/services/fix_planner.py) — generates fix_plan.json from prioritized findings
+- [x] Human Approval Gate (app/services/approval_gate.py) — records approve/skip/reject; interactive + programmatic modes
+- [x] Code Modifier (app/services/code_modifier.py) — backup, apply unified diff, py_compile check, revert on fail
+- [x] Orchestrator wired through FIX_PLANNING → AWAITING_APPROVAL → MODIFYING → COMPLETE
+- [x] Integration test 1: approve fix → file modified + backup exists (PASSED)
+- [x] Integration test 2: reject fix → file unchanged (PASSED)
+- [x] Integration test 3: bad fix → syntax error → reverted from backup (PASSED)
 
 ---
 
 ## Currently Working On
 
-Nothing. Phase 4 is complete. Waiting for explicit approval to begin Phase 5.
+Nothing. Phase 5 is complete. Waiting for explicit approval to begin Phase 6.
 
 ---
 
 ## Next Task
 
-Phase 5 — Remediation (requires approval before starting):
-- Implement Fix Planner (generates fix_plan.json from prioritized findings).
-- Implement Human Approval Gate (present each fix, record decision).
-- Implement Code Modifier (apply approved fixes with backup + syntax check).
-- Integration tests: approve fix → file modified; reject fix → file unchanged;
-  bad fix → reverted from backup.
+Phase 6 — Verification:
+- Implement Test Generator (produces tests/test_devflow_generated.py).
+- Implement Test Runner (runs pytest; parses output).
+- Implement Failure Analyzer.
+- Implement iteration logic (maximum 2 total post-fix runs).
+- Run full end-to-end on sample project; record test pass rate.
 
 ---
 
@@ -96,6 +104,20 @@ Phase 4 — Aggregation & Prioritization (2026-09-26):
 - IssuePrioritizer: Critical→High→Medium→Low, then by file path
 - Detection rate: 11/13 (85%) from prioritized output; 13/13 from agent output
 - METRICS.md updated with measured detection results
+
+Phase 5 — Remediation (2026-09-26):
+- pytest → 125 passed (all Phase 1–5 tests; 28 new Phase 5 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 26 source files
+- FixProposal model: ProposalStatus enum (pending/approved/skipped/rejected/applied/failed)
+- Fix Planner: generates proposals from prioritized findings; balanced-paren diff for multi-line calls
+- Approval Gate: non-interactive (decisions dict) and interactive (stdin prompt) modes
+- Code Modifier: backup → apply diff → py_compile → revert on failure; path-escape guard
+- Integration test 1: approve fix → main.py modified, .bak exists, log has APPLIED entry
+- Integration test 2: reject (all skipped) → main.py unchanged, applied_fixes=0
+- Integration test 3: bad diff → syntax error → file reverted, status=FAILED
+- Orchestrator: FIX_PLANNING → AWAITING_APPROVAL → MODIFYING → COMPLETE
+- fix_plan.json, approved_fix_plan.json, fix_application_log.json all produced
 
 Phase 3 — Subagents (2026-09-26):
 - pytest → 72 passed (all Phase 1 + 2 + 3 tests; 39 new Phase 3 tests)
