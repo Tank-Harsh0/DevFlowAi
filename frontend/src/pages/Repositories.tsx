@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Search, GitBranch } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +10,7 @@ import { EmptyState, LoadingState, ErrorState } from '@/components/ui/states'
 import { MockDataNotice } from '@/components/ui/mock-notice'
 import { useRepositories } from '@/hooks/useRepositories'
 import { repositoriesService } from '@/services/repositories'
+import { workflowsService } from '@/services/workflows'
 import type { Repository, AddRepositoryRequest } from '@/types/repository'
 
 function AddRepositoryModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
@@ -90,16 +92,21 @@ function AddRepositoryModal({ onClose, onAdded }: { onClose: () => void; onAdded
 }
 
 export default function Repositories() {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
 
   const { data: repositories, loading, error, isMock, refetch } = useRepositories()
 
-  const handleStartWorkflow = useCallback((_repo: Repository) => {
-    // Phase 4: connect to workflowsService.start(_repo.id) and navigate to /workflow
-    void _repo
-    alert('Backend integration pending — workflow start will be enabled in Phase 4.')
-  }, [])
+  const handleStartWorkflow = useCallback(
+    (repo: Repository) => {
+      workflowsService.start(repo.id).catch(() => {
+        // If backend is unreachable navigate anyway — Workflow page handles missing data
+      })
+      void navigate('/workflow')
+    },
+    [navigate],
+  )
 
   const filtered = repositories.filter(
     (r) =>

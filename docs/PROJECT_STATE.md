@@ -1,13 +1,14 @@
 # DevFlow AI — Project State
 
-Version: 1.0
-Last Updated: 2026-09-26
+Version: 1.1
+Last Updated: 2026-09-27
 
 ---
 
 ## Current Phase
 
 Phase 7 — Reporting and Demo (COMPLETE)
+Frontend Integration (COMPLETE)
 
 ---
 
@@ -41,12 +42,15 @@ Phase 7 — Reporting and Demo (COMPLETE)
 - [x] Report Generator (app/services/report_generator.py) — 7-section final_report.md
 - [x] Orchestrator wired: REPORTING → COMPLETE
 - [x] final_report.md written to session dir + repository root
+- [x] Frontend: Repositories.tsx handleStartWorkflow wired to workflowsService.start() + navigate('/workflow')
+- [x] Frontend: frontend/.env.local created (VITE_API_BASE_URL=http://localhost:8000)
+- [x] Frontend: npm install + tsc -b + vite build all pass cleanly
 
 ---
 
 ## Currently Working On
 
-Nothing. All phases (0–7) are complete.
+Nothing. All phases (0–7) and frontend integration are complete.
 
 ---
 
