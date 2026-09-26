@@ -2,20 +2,17 @@
 # DevFlow AI — Docker Compose
 #
 # Services:
-#   frontend  — Vite dev server          http://localhost:5173
 #   backend   — FastAPI / uvicorn        http://localhost:8000
+#   frontend  — Vite dev server          http://localhost:5173
 #
-# Database: MongoDB Atlas (external cloud service — NOT containerised).
-#   Do NOT add a local mongodb: service here.
-#   When Phase 6 database integration is active, supply MONGODB_URI in .env:
-#     MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<db>?...
-#   The backend container reads MONGODB_URI from the environment at runtime.
-#   Never hardcode the URI here.
+# Database: MongoDB Atlas (external cloud service — not containerised).
+#   Supply MONGODB_URI in a root .env file or as an environment variable.
+#   The backend container reads it at runtime — never hardcode it here.
 #
 # Usage:
-#   docker compose up --build     # start all services (build first)
+#   docker compose up --build     # first run (builds images)
 #   docker compose up -d          # start in background
-#   docker compose down           # stop and remove containers
+#   docker compose down           # stop containers
 #   docker compose logs -f        # tail all logs
 #   docker compose logs -f backend
 # =============================================================================
@@ -34,20 +31,30 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # CORS — allows the Vite dev server to call the API from the browser.
+      # CORS — allows the Vite dev server (running in the browser) to call the API.
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173}
-      # Pass through any additional env vars when they become required.
-      # MongoDB Atlas — NOT containerised. Supply the Atlas URI via .env.
-      # Uncomment when Phase 6 MongoDB integration is active:
-      # MONGODB_URI: ${MONGODB_URI:-}
-      # GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      # MongoDB Atlas connection string — REQUIRED. Set in your .env file.
+      MONGODB_URI: ${MONGODB_URI}
+      # Optional: override the database name (default: devflow)
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME:-devflow}
+      # JWT secret — CHANGE THIS in production.
+      # Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: ${SECRET_KEY:-devflow-change-me-in-production-use-a-real-secret!!}
+      # Access token lifetime in minutes (default: 60 = 1 hour)
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
     volumes:
-      # Source mount enables uvicorn --reload (hot reload) without rebuilding.
+      # Source mount — uvicorn --reload picks up live code changes without rebuild.
       - ./backend:/app
-      # Isolate the image's site-packages from the host .venv.
+      # Isolate the image's site-packages; never use the host .venv inside Docker.
       - /app/.venv
     networks:
       - devflow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # ── Frontend ───────────────────────────────────────────────────────────────
   frontend:
@@ -60,8 +67,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      # VITE_API_BASE_URL must be a URL the BROWSER can reach — i.e. localhost,
-      # not the Docker service name "backend". The browser runs outside Docker.
+      # Must be a URL the BROWSER can reach — localhost, not the Docker service name.
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     volumes:
       # Source mount for Vite HMR.
@@ -71,7 +77,8 @@ services:
     networks:
       - devflow_net
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 # =============================================================================
 # Networks

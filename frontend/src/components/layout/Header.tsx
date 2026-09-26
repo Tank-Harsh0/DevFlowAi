@@ -1,7 +1,8 @@
 import { useLocation } from 'react-router-dom'
-import { Bell, Moon, Sun } from 'lucide-react'
+import { Bell, Moon, Sun, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/useTheme'
+import { useAuth } from '@/hooks/useAuth'
 
 const pageTitles: Record<string, { title: string; description: string }> = {
   '/': { title: 'Dashboard', description: 'Overview of your workflow activity' },
@@ -15,6 +16,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 export function Header() {
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
+  const { user, logout } = useAuth()
   const page = pageTitles[location.pathname] ?? { title: 'DevFlow AI', description: '' }
 
   return (
@@ -24,7 +26,7 @@ export function Header() {
         <p className="text-xs text-muted-foreground">{page.description}</p>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           size="icon"
@@ -42,6 +44,22 @@ export function Header() {
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </Button>
+        {user && (
+          <div className="flex items-center gap-2 pl-2 border-l border-border">
+            <span className="text-xs text-muted-foreground hidden sm:block">
+              {user.username}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sign out"
+              className="text-muted-foreground"
+              onClick={logout}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   )

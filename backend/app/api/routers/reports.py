@@ -1,16 +1,12 @@
-"""
-Reports router — /api/v1/reports
-
-Endpoints:
-  GET  /api/v1/reports          List all reports
-  GET  /api/v1/reports/{id}     Get a single report by ID
-"""
+"""Reports router — /api/v1/reports"""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.schemas import ReportOut
-from app.api.store import store
+from app.api.store import get_report, list_reports
+from app.api.routers.auth import get_current_user
+from app.db.models import UserDoc
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -18,19 +14,18 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 
 
 @router.get("", response_model=list[ReportOut])
-def list_reports() -> list[ReportOut]:
-    """Return all generated reports."""
-    return sorted(
-        store.reports.values(),
-        key=lambda r: r.generatedAt,
-        reverse=True,
-    )
+async def list_reports_route(
+    _: UserDoc = Depends(get_current_user),
+) -> list[ReportOut]:
+    return await list_reports()
 
 
 @router.get("/{report_id}", response_model=ReportOut)
-def get_report(report_id: str) -> ReportOut:
-    """Return a single report by ID."""
-    report = store.reports.get(report_id)
+async def get_report_route(
+    report_id: str,
+    _: UserDoc = Depends(get_current_user),
+) -> ReportOut:
+    report = await get_report(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return report

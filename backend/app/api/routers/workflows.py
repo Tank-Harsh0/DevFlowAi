@@ -1,16 +1,5 @@
 """
 Workflows router — /api/v1/workflows
-
-Endpoints:
-  GET   /api/v1/workflows                            List workflow runs
-  POST  /api/v1/workflows                            Start a new run
-  GET   /api/v1/workflows/{id}                       Get a single run
-  POST  /api/v1/workflows/{id}/steps/{step}/approval Submit approval decision
-  GET   /api/v1/workflows/{id}/report                Get the report for a run
-
-The workflow is executed synchronously in a background thread so the
-POST /api/v1/workflows response returns immediately with status=running
-and the frontend can poll GET /api/v1/workflows/{id} for updates.
 """
 from __future__ import annotations
 
@@ -20,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.schemas import (
     AgentSource,
@@ -40,7 +29,17 @@ from app.api.schemas import (
     WorkflowRunOut,
     WorkflowStatus,
 )
-from app.api.store import store
+from app.api.store import (
+    store,
+    get_repository,
+    get_workflow,
+    list_workflows,
+    save_workflow,
+    save_repository,
+    get_report_by_workflow,
+)
+from app.api.routers.auth import get_current_user
+from app.db.models import UserDoc
 from app.api.ws_broker import ws_broker
 from app.core.logging import get_logger
 
@@ -93,12 +92,11 @@ def _make_steps(status: WorkflowStatus = WorkflowStatus.PENDING) -> list[AgentSt
 # ---------------------------------------------------------------------------
 
 @router.get("", response_model=list[WorkflowRunOut])
-def list_workflows(repositoryId: str | None = None) -> list[WorkflowRunOut]:
-    """List all workflow runs, optionally filtered by repository."""
-    runs = list(store.workflows.values())
-    if repositoryId:
-        runs = [r for r in runs if r.repositoryId == repositoryId]
-    return sorted(runs, key=lambda r: r.createdAt, reverse=True)
+async def list_workflows_route(
+    repositoryId: str | None = None,
+    _: UserDoc = Depends(get_current_user),
+) -> list[WorkflowRunOut]:
+    return await list_workflows(repository_id=repositoryId)
 
 
 def _resolve_repo_path(run_id: str, url: str) -> str:
@@ -130,9 +128,11 @@ def _resolve_repo_path(run_id: str, url: str) -> str:
 
 
 @router.post("", response_model=WorkflowRunOut, status_code=201)
-def start_workflow(body: StartWorkflowRequest) -> WorkflowRunOut:
-    """Start a new DevFlow AI workflow run for a repository."""
-    repo = store.repositories.get(body.repositoryId)
+async def start_workflow(
+    body: StartWorkflowRequest,
+    _: UserDoc = Depends(get_current_user),
+) -> WorkflowRunOut:
+    repo = await get_repository(body.repositoryId)
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
 
@@ -149,20 +149,12 @@ def start_workflow(body: StartWorkflowRequest) -> WorkflowRunOut:
         steps=_make_steps(WorkflowStatus.PENDING),
         currentStep="inspecting",
     )
-    store.workflows[run_id] = run
-    store.workflow_findings[run_id] = []
+    await save_workflow(run)
 
-    # Update repository status
     updated_repo = repo.model_copy(update={"status": "analyzing", "updatedAt": now})
-    store.repositories[repo.id] = updated_repo
+    await save_repository(updated_repo)
 
-    # Execute orchestrator in a background thread so the response is immediate.
-    # _run_orchestrator resolves GitHub URLs to a local clone path internally.
-    thread = threading.Thread(
-        target=_run_orchestrator,
-        args=(run_id, repo.url),
-        daemon=True,
-    )
+    thread = threading.Thread(target=_run_orchestrator, args=(run_id, repo.url), daemon=True)
     thread.start()
 
     logger.info("Workflow %s started for repository %s", run_id, repo.name)
@@ -170,26 +162,27 @@ def start_workflow(body: StartWorkflowRequest) -> WorkflowRunOut:
 
 
 @router.get("/{workflow_id}", response_model=WorkflowRunOut)
-def get_workflow(workflow_id: str) -> WorkflowRunOut:
-    """Get a single workflow run by ID."""
-    run = store.workflows.get(workflow_id)
+async def get_workflow_route(
+    workflow_id: str,
+    _: UserDoc = Depends(get_current_user),
+) -> WorkflowRunOut:
+    run = await get_workflow(workflow_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
     return run
 
 
 @router.post("/{workflow_id}/steps/{step_id}/approval", status_code=200)
-def submit_approval(
+async def submit_approval(
     workflow_id: str,
     step_id: str,
     body: ApprovalRequest,
+    _: UserDoc = Depends(get_current_user),
 ) -> dict[str, str]:
-    """Record a developer approval/rejection decision for an approval step."""
-    run = store.workflows.get(workflow_id)
+    run = await get_workflow(workflow_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    # Update the step status
     updated_steps = []
     for step in run.steps:
         if step.id == step_id:
@@ -202,21 +195,20 @@ def submit_approval(
             updated_steps.append(step)
 
     updated_run = run.model_copy(update={"steps": updated_steps, "updatedAt": _now()})
-    store.workflows[workflow_id] = updated_run
+    await save_workflow(updated_run)
 
     logger.info("Approval for workflow %s step %s: %s", workflow_id, step_id, body.approved)
     return {"status": "recorded"}
 
 
 @router.get("/{workflow_id}/report", response_model=ReportOut)
-def get_workflow_report(workflow_id: str) -> ReportOut:
-    """Get the final report for a completed workflow run."""
-    report_id = store.workflow_report.get(workflow_id)
-    if report_id is None:
-        raise HTTPException(status_code=404, detail="Report not available yet")
-    report = store.reports.get(report_id)
+async def get_workflow_report(
+    workflow_id: str,
+    _: UserDoc = Depends(get_current_user),
+) -> ReportOut:
+    report = await get_report_by_workflow(workflow_id)
     if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise HTTPException(status_code=404, detail="Report not available yet")
     return report
 
 
@@ -229,7 +221,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
     from app.services.orchestrator import Orchestrator, OrchestratorError
 
     def _set_step(step_id: str, status: WorkflowStatus, **kwargs: Any) -> None:
-        run = store.workflows.get(run_id)
+        run = store.get_workflow(run_id)
         if run is None:
             return
         updated_steps = []
@@ -251,7 +243,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
             "currentStep": step_id,
             "updatedAt": _now(),
         })
-        store.workflows[run_id] = updated_run
+        store.set_workflow(updated_run)
         # Broadcast step change to any connected WebSocket clients.
         if changed_step is not None:
             ws_broker.publish(run_id, {
@@ -268,7 +260,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
         })
 
     def _set_run_status(status: WorkflowStatus, **kwargs: Any) -> None:
-        run = store.workflows.get(run_id)
+        run = store.get_workflow(run_id)
         if run is None:
             return
         update: dict[str, Any] = {"status": status, "updatedAt": _now()}
@@ -276,7 +268,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
             update["completedAt"] = _now()
         update.update(kwargs)
         updated_run = run.model_copy(update=update)
-        store.workflows[run_id] = updated_run
+        store.set_workflow(updated_run)
         # Broadcast run status change to any connected WebSocket clients.
         ws_broker.publish(run_id, {
             "type": "workflow_update",
@@ -347,25 +339,24 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
         )
 
         # Update repository status
-        repo = store.repositories.get(
-            store.workflows[run_id].repositoryId if run_id in store.workflows else ""
-        )
-        if repo:
-            store.repositories[repo.id] = repo.model_copy(update={
-                "status": "analyzed",
-                "lastAnalyzedAt": _now(),
-                "lastWorkflowId": run_id,
-                "workflowCount": repo.workflowCount + 1,
-                "updatedAt": _now(),
-            })
+        run_out = store.get_workflow(run_id)
+        if run_out:
+            repo = store.get_repo(run_out.repositoryId)
+            if repo:
+                store.set_repo(repo.model_copy(update={
+                    "status": "analyzed",
+                    "lastAnalyzedAt": _now(),
+                    "lastWorkflowId": run_id,
+                    "workflowCount": repo.workflowCount + 1,
+                    "updatedAt": _now(),
+                }))
 
         logger.info("Workflow %s completed", run_id)
 
     except (OrchestratorError, Exception) as exc:
         logger.error("Workflow %s failed: %s", run_id, exc)
         _set_run_status(WorkflowStatus.FAILED, currentStep=None)
-        # Mark any still-running step as failed
-        run = store.workflows.get(run_id)
+        run = store.get_workflow(run_id)
         if run:
             updated_steps = [
                 s.model_copy(update={
@@ -375,7 +366,7 @@ def _run_orchestrator(run_id: str, repo_path: str) -> None:
                 }) if s.status == WorkflowStatus.RUNNING else s
                 for s in run.steps
             ]
-            store.workflows[run_id] = run.model_copy(update={"steps": updated_steps})
+            store.set_workflow(run.model_copy(update={"steps": updated_steps}))
 
 
 def _ingest_findings(run_id: str, orch: Any, result: dict[str, Any]) -> None:
@@ -500,10 +491,8 @@ def _ingest_findings(run_id: str, orch: Any, result: dict[str, Any]) -> None:
             createdAt=now,
             updatedAt=now,
         )
-        store.findings[fe_id] = finding
+        store.set_finding(finding)
         finding_ids.append(fe_id)
-
-    store.workflow_findings[run_id] = finding_ids
 
 
 def _build_report(run_id: str, orch: Any, result: dict[str, Any]) -> None:
@@ -514,19 +503,19 @@ def _build_report(run_id: str, orch: Any, result: dict[str, Any]) -> None:
     report_id = str(uuid.uuid4())
     now = _now()
 
-    run = store.workflows.get(run_id)
+    run = store.get_workflow(run_id)
     if run is None:
         return
 
-    repo = store.repositories.get(run.repositoryId) if run else None
+    repo = store.get_repo(run.repositoryId)
     repo_name = repo.name if repo else ""
     repo_url = repo.url if repo else ""
 
     # Severity breakdown
-    finding_ids = store.workflow_findings.get(run_id, [])
+    finding_ids = store.get_finding_ids(run_id)
     sev_counts: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for fid in finding_ids:
-        f = store.findings.get(fid)
+        f = store.get_finding(fid)
         if f:
             sev_counts[f.severity.value] = sev_counts.get(f.severity.value, 0) + 1
 
@@ -600,5 +589,4 @@ def _build_report(run_id: str, orch: Any, result: dict[str, Any]) -> None:
         sections=sections,
         downloadUrl=download_url,
     )
-    store.reports[report_id] = report
-    store.workflow_report[run_id] = report_id
+    store.set_report(report)
