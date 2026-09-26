@@ -7,7 +7,7 @@ Last Updated: 2026-09-26
 
 ## Current Phase
 
-Phase 0 — Planning (Documentation)
+Phase 4 — Aggregation & Prioritization (COMPLETE)
 
 ---
 
@@ -30,24 +30,28 @@ Phase 0 — Planning (Documentation)
 
 ## Currently Working On
 
-Nothing. Phase 0 is complete. Waiting for explicit approval to begin Phase 1.
+Nothing. Phase 4 is complete. Waiting for explicit approval to begin Phase 5.
 
 ---
 
 ## Next Task
 
-Phase 1 — Foundation:
-- Confirm IBM Bob 2.0 SDK availability and import mechanism.
-- Create project structure (app/, tests/, devflow/, sample-project/).
-- Create requirements.txt with justified dependencies.
-- Set up logging.
-- Create smoke test.
+Phase 5 — Remediation (requires approval before starting):
+- Implement Fix Planner (generates fix_plan.json from prioritized findings).
+- Implement Human Approval Gate (present each fix, record decision).
+- Implement Code Modifier (apply approved fixes with backup + syntax check).
+- Integration tests: approve fix → file modified; reject fix → file unchanged;
+  bad fix → reverted from backup.
 
 ---
 
 ## Known Issues
 
-None at this stage. No application code exists yet.
+- StarletteDeprecationWarning: httpx TestClient deprecation notice in test output.
+  Not a test failure; does not affect behaviour.
+- IBM Bob 2.0 orchestrator agent wrapper not yet implemented. Orchestrator is a plain
+  Python class. IBM Bob 2.0 SDK integration is deferred until the API is confirmed.
+  (Rule 3 — No Invented APIs)
 
 ---
 
@@ -67,7 +71,41 @@ None at this stage. No application code exists yet.
 
 ## Verified
 
-Nothing has been implemented or verified yet.
+Phase 1 — Foundation (2026-09-26):
+- pytest → 8 passed (tests/test_smoke.py, tests/test_health.py)
+- ruff check → All checks passed
+- mypy → no issues found in 6 source files
+- FastAPI startup → GET /health returns correct JSON response
+- Python version: 3.13.0 (satisfies >=3.11 requirement)
+
+Phase 2 — Orchestrator Skeleton (2026-09-26):
+- pytest → 33 passed (all Phase 1 + Phase 2 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 13 source files
+- RepositoryInspector correctly reads sample-project/
+- project_context.json produced with detected_language=python
+- execution_plan.json produced with 4 tasks (all enabled for sample project)
+- session.log created with structured audit entries
+- OrchestratorError raised on invalid repository path
+
+Phase 4 — Aggregation & Prioritization (2026-09-26):
+- pytest → 97 passed (all Phase 1–4 tests; 25 new Phase 4 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 22 source files
+- FindingAggregator: cross-agent dedup, same-agent findings kept separate
+- IssuePrioritizer: Critical→High→Medium→Low, then by file path
+- Detection rate: 11/13 (85%) from prioritized output; 13/13 from agent output
+- METRICS.md updated with measured detection results
+
+Phase 3 — Subagents (2026-09-26):
+- pytest → 72 passed (all Phase 1 + 2 + 3 tests; 39 new Phase 3 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 20 source files
+- Code Review Agent: 6 findings (SP-03,04,07,08,09,13)
+- Test Analysis Agent: ≥7 findings (SP-06 + per-route gaps + SP-10)
+- Security Agent: 3+ findings (SP-01 critical, SP-02 critical, SP-05 high)
+- Documentation Agent: findings for SP-11 (README sections) + SP-12 (docstrings)
+- All findings_*.json written; security_json includes mandatory disclaimer
 
 ---
 
@@ -85,7 +123,7 @@ Nothing has been implemented or verified yet.
 
 ## Files Recently Changed
 
-2026-09-26:
+2026-09-26 (Phase 0):
 - README.md (created)
 - .env.example (created)
 - docs/PRD.md (created)
@@ -97,6 +135,22 @@ Nothing has been implemented or verified yet.
 - docs/IMPLEMENTATION_PLAN.md (created)
 - docs/PROJECT_STATE.md (created)
 - docs/METRICS.md (created)
+
+2026-09-26 (Phase 1):
+- backend/app/__init__.py (created)
+- backend/app/main.py (created — FastAPI application factory)
+- backend/app/core/__init__.py (created)
+- backend/app/core/config.py (created — pydantic-settings configuration)
+- backend/app/core/logging.py (created — structured logging)
+- backend/app/api/__init__.py (created)
+- backend/tests/__init__.py (created)
+- backend/tests/test_smoke.py (created — 3 smoke tests)
+- backend/tests/test_health.py (created — 5 health endpoint tests)
+- backend/pyproject.toml (created — ruff, mypy, pytest config)
+- backend/.env.example (created)
+- backend/README.md (created)
+- .gitignore (updated — added Python/tool cache patterns)
+- backend/main.py (pre-existing stub — superseded by app/main.py; kept for reference)
 
 ---
 

@@ -1,2 +1,36 @@
+# Environment
 .env
+.env.local
+
+# Virtual environments
 .venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checker cache
+.mypy_cache/
+
+# Linter cache
+.ruff_cache/
+
+# Build artefacts
+dist/
+build/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# DevFlow AI session output
+devflow_sessions/

@@ -47,15 +47,18 @@ Goal: Set up the project structure, tooling, and a minimal runnable skeleton.
 Do not begin until Phase 0 is reviewed and approved.
 
 ```
-[ ] Create Python project structure (app/, tests/, devflow/)
-[ ] Create requirements.txt with justified dependencies only
-[ ] Create pyproject.toml or setup.cfg for the project
-[ ] Create basic configuration module (config.py reading from .env)
-[ ] Create session output directory management
-[ ] Create logging setup (writes to session.log)
-[ ] Verify Python 3.11+ is available
-[ ] Verify pytest is available
-[ ] Create a minimal smoke test that imports the project without errors
+[x] Create Python project structure (app/, app/core/, app/api/, tests/)
+[x] Create requirements.txt with justified dependencies only
+[x] Create pyproject.toml (ruff, mypy, pytest config)
+[x] Create basic configuration module (app/core/config.py reading from .env)
+[x] Create logging setup (app/core/logging.py)
+[x] Verify Python 3.13 is available (>= 3.11 requirement satisfied)
+[x] Verify pytest is available
+[x] Create smoke test + health endpoint tests (8 tests, all passing)
+[x] Create FastAPI application factory (app/main.py)
+[x] Create backend/.env.example
+[x] Create backend/README.md
+[x] Update root .gitignore
 ```
 
 Dependencies:
@@ -76,7 +79,13 @@ SDK interface is confirmed.
 Exit Criteria: Project imports without errors. Session logging works.
 Smoke test passes.
 
-Status: NOT STARTED
+Status: COMPLETE — 2026-09-26
+
+Verified:
+- pytest → 8 passed
+- ruff check → All checks passed
+- mypy → no issues found in 6 source files
+- FastAPI startup → GET /health returns {"status":"healthy","service":"devflow-ai","version":"0.1.0","environment":"development"}
 
 ---
 
@@ -88,22 +97,30 @@ management. No subagents yet.
 Do not begin until Phase 1 is complete and verified.
 
 ```
-[ ] Implement workflow state machine (tracks current stage)
-[ ] Implement Repository Inspector (reads files, builds project_context.json)
-[ ] Implement Task Planner (produces execution_plan.json)
-[ ] Implement session output directory creation
-[ ] Implement audit log writing (session.log)
-[ ] Write integration test: point at sample-project/; verify project_context.json
-    is produced correctly
+[x] Implement workflow state machine (WorkflowStage StrEnum, WorkflowState model)
+[x] Implement Repository Inspector (reads files, builds project_context.json)
+[x] Implement Task Planner (produces execution_plan.json)
+[x] Implement session output directory creation (SessionManager)
+[x] Implement audit log writing (session.log via SessionManager)
+[x] Create sample-project/ (FastAPI + MongoDB Todo API with 13 predefined issues)
+[x] Write integration test: point at sample-project/; verify project_context.json
+    is produced correctly (25 new tests; all passing)
 ```
 
 Implementation Dependency: IBM Bob 2.0 agent creation and tool registration
 API must be validated before implementing the orchestrator agent wrapper.
+For the MVP, the orchestrator is a plain Python class (not an IBM Bob agent wrapper).
+This is documented as a limitation in PROJECT_STATE.md.
 
 Exit Criteria: Repository Inspector correctly reads the sample project and
 produces a valid project_context.json. Integration test passes.
 
-Status: NOT STARTED
+Status: COMPLETE — 2026-09-26
+
+Verified:
+- pytest → 33 passed (8 Phase 1 + 25 Phase 2 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 13 source files
 
 ---
 
@@ -115,26 +132,34 @@ defined schema.
 Do not begin until Phase 2 is complete and verified.
 
 ```
-[ ] Implement Code Review Agent
-[ ] Write unit test: Code Review Agent detects at least 3 known issues
-    in the sample project
-[ ] Implement Test Analysis Agent
-[ ] Write unit test: Test Analysis Agent identifies at least 2 known gaps
-[ ] Implement Security Agent (with mandatory disclaimer)
-[ ] Write unit test: Security Agent flags the hardcoded connection string
-[ ] Implement Documentation Agent
-[ ] Write unit test: Documentation Agent flags the missing README sections
-[ ] Implement Finding schema validation (validates each agent output)
+[x] Implement Code Review Agent (detects SP-03,04,07,08,09,13)
+[x] Write unit test: Code Review Agent detects at least 3 known issues ✓ (6 detected)
+[x] Implement Test Analysis Agent (detects SP-06,10)
+[x] Write unit test: Test Analysis Agent identifies at least 2 known gaps ✓
+[x] Implement Security Agent (detects SP-01,02,05) with mandatory disclaimer
+[x] Write unit test: Security Agent flags hardcoded connection string ✓ (CRITICAL)
+[x] Implement Documentation Agent (detects SP-11,12)
+[x] Write unit test: Documentation Agent flags missing README sections ✓
+[x] Implement Finding schema validation (Pydantic Finding model; all agents validated)
+[x] Wire agents into Orchestrator (sequential dispatch; writes findings_*.json)
 ```
 
 Implementation Dependency: Subagent dispatch mechanism in IBM Bob 2.0 must
-be confirmed. If subagents are plain Python functions rather than true agents,
-document this in PROJECT_STATE.md.
+be confirmed. Subagents are plain Python classes for the MVP. Documented in
+PROJECT_STATE.md under "Not Yet Verified".
 
 Exit Criteria: All four agents produce valid findings_*.json for the sample
 project. All unit tests pass.
 
-Status: NOT STARTED
+Status: COMPLETE — 2026-09-26
+
+Verified:
+- pytest → 72 passed (all Phase 1 + 2 + 3 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 20 source files
+- All four findings_*.json written to session directory
+- Security output includes mandatory disclaimer field
+- Hardcoded credential finding is severity=critical
 
 ---
 
@@ -146,13 +171,13 @@ deduplication, and prioritization.
 Do not begin until Phase 3 is complete and verified.
 
 ```
-[ ] Implement parallel (or sequential fallback) agent dispatch
-[ ] Implement Finding Aggregator
-[ ] Implement Issue Prioritizer
-[ ] Write integration test: full analysis run on sample project produces
-    deduplicated_findings.json and prioritized_findings.json
-[ ] Verify that all 13 predefined issues are detected (or document which
-    ones are not and why)
+[x] Implement sequential agent dispatch (parallel not yet available — documented)
+[x] Implement Finding Aggregator (cross-agent dedup, highest severity retained)
+[x] Implement Issue Prioritizer (Critical→High→Medium→Low, then by file)
+[x] Write integration test: full run produces deduplicated_findings.json +
+    prioritized_findings.json with valid schema and correct ordering
+[x] Verify detection rate: 11/13 (85%) — exceeds AC-04 minimum of 10/13.
+    All 13 detected by individual agents; documented in METRICS.md
 ```
 
 Implementation Dependency: Parallel dispatch requires IBM Bob 2.0 concurrent
@@ -162,7 +187,17 @@ limitation.
 Exit Criteria: Integration test passes. All detected issues match expected
 schema. Detection rate recorded in METRICS.md.
 
-Status: NOT STARTED
+Status: COMPLETE — 2026-09-26
+
+Verified:
+- pytest → 97 passed (all Phase 1–4 tests; 25 new Phase 4 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 22 source files
+- deduplicated_findings.json produced and valid
+- prioritized_findings.json produced, ordered Critical→High→Medium→Low
+- Detection rate: 11/13 (85%) — meets AC-04 threshold of 10/13
+- All 13 issues present in individual agent outputs before aggregation
+- Detection results recorded in METRICS.md
 
 ---
 
