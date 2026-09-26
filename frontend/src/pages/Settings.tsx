@@ -1,68 +1,155 @@
-import { Settings as SettingsIcon } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { useState } from 'react'
+import { Moon, Sun, Bell, Cpu, Globe, Info } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Separator } from '@/components/ui/separator'
+import { useTheme } from '@/hooks/useTheme'
+
+function SectionHeading({ icon: Icon, title, description }: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description?: string
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center justify-center w-8 h-8 rounded-md bg-muted">
+        <Icon className="w-4 h-4 text-muted-foreground" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-foreground">{title}</p>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+    </div>
+  )
+}
 
 export default function Settings() {
-  return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Application configuration and preferences.
-        </p>
-      </div>
+  const { theme, setTheme } = useTheme()
+  const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_BASE_URL ?? '')
 
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Appearance */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <SettingsIcon className="w-4 h-4 text-muted-foreground" />
-            <CardTitle>API Configuration</CardTitle>
+          <SectionHeading icon={Sun} title="Appearance" description="Theme and display preferences" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-foreground mb-2">Color theme</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${theme === 'dark' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+              >
+                <Moon className="w-3.5 h-3.5" />
+                Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${theme === 'light' ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+              >
+                <Sun className="w-3.5 h-3.5" />
+                Light
+              </button>
+            </div>
           </div>
-          <CardDescription>
-            Configure the backend API endpoint for your DevFlow AI instance.
-          </CardDescription>
+        </CardContent>
+      </Card>
+
+      {/* API Configuration */}
+      <Card>
+        <CardHeader>
+          <SectionHeading icon={Globe} title="API Configuration" description="Backend connection settings" />
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-foreground" htmlFor="api-url">
               API Base URL
             </label>
-            <Input
-              id="api-url"
-              placeholder="http://localhost:8000"
-              defaultValue={import.meta.env.VITE_API_BASE_URL ?? ''}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="api-url"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="http://localhost:8000"
+                className="flex-1"
+              />
+              <Button size="sm" variant="outline" disabled>Save</Button>
+            </div>
             <p className="text-xs text-muted-foreground">
               Set via <code className="text-xs font-mono bg-muted px-1 py-0.5 rounded">VITE_API_BASE_URL</code> environment variable.
             </p>
           </div>
-          <Button size="sm" disabled>Save Changes</Button>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Connection Status</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Backend API reachability</p>
+            </div>
+            <span className="flex items-center gap-1.5 text-xs text-amber-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Not connected
+            </span>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Workflow Preferences */}
       <Card>
         <CardHeader>
-          <CardTitle>About</CardTitle>
-          <CardDescription>DevFlow AI Frontend</CardDescription>
+          <SectionHeading icon={Cpu} title="Workflow Preferences" description="Default settings for workflow runs" />
         </CardHeader>
         <CardContent>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Version</dt>
-              <dd className="text-foreground font-mono text-xs">0.1.0</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Phase</dt>
-              <dd className="text-foreground text-xs">Phase 1 — Foundation</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Backend</dt>
-              <dd className="text-amber-500 text-xs">Not connected</dd>
-            </div>
+          <div className="p-3 rounded-md bg-muted/50 border border-border">
+            <p className="text-xs text-muted-foreground">
+              Workflow configuration options will be available once backend integration is complete (Phase 3).
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <SectionHeading icon={Bell} title="Notifications" description="Alert and notification preferences" />
+        </CardHeader>
+        <CardContent>
+          <div className="p-3 rounded-md bg-muted/50 border border-border">
+            <p className="text-xs text-muted-foreground">
+              Notification settings will be available once backend integration is complete (Phase 3).
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* About */}
+      <Card>
+        <CardHeader>
+          <SectionHeading icon={Info} title="About" />
+          <CardDescription>DevFlow AI Platform</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="space-y-2">
+            <MetaRow label="Version" value="0.1.0" />
+            <MetaRow label="Phase" value="Phase 2 — Core Pages" />
+            <MetaRow label="Stack" value="React 19 · TypeScript 6 · Tailwind v4 · Vite 8" />
+            <MetaRow label="Backend" value="Integration pending (Phase 3)" warn />
           </dl>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function MetaRow({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-b-0">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={`text-xs font-medium ${warn ? 'text-amber-500' : 'text-foreground'}`}>{value}</dd>
     </div>
   )
 }
