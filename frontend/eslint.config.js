@@ -18,5 +18,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Data-fetching hooks legitimately call setState inside useEffect via async functions.
+      // The rule incorrectly flags `void asyncFn()` even though setState is called post-await.
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
 ])
