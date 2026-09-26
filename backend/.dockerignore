@@ -1,0 +1,38 @@
+# Python virtual environments and cache — use the image's site-packages instead
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*.pyo
+
+# Test and coverage artefacts
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+
+# Type checker and linter cache
+.mypy_cache
+.ruff_cache
+
+# Version control
+.git
+.gitignore
+
+# Environment files — secrets must not land in the image
+.env
+.env.*
+!.env.example
+
+# IDE artefacts
+.vscode
+.idea
+*.suo
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# DevFlow session output — large, not needed in the image
+devflow_sessions

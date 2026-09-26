@@ -159,3 +159,75 @@ Phase 3 — Subagents (2026-09-26):
 - docs/PRD.md — source of truth; change only with explicit approval
 - docs/ARCHITECTURE.md — source of truth; change only with explicit approval
 - docs/AI_RULES.md — rules are mandatory; do not modify without approval
+
+---
+
+## Docker Setup (COMPLETE)
+
+Added: 2026-09-27
+
+### Docker status: PASS
+
+All three services build and start successfully with `docker compose up --build`.
+
+### Services
+
+| Service  | Build | Starts | Health | Notes |
+|----------|-------|--------|--------|-------|
+| Frontend | ✅ | ✅ | — | Vite dev server on :5173; HMR via volume mount |
+| Backend  | ✅ | ✅ | ✅ | FastAPI/uvicorn on :8000; --reload via volume mount |
+| MongoDB  | ✅ | ✅ | ✅ | mongo:7 on :27017; data persisted to named volume |
+
+### Ports
+
+```
+Frontend:  http://localhost:5173
+Backend:   http://localhost:8000
+MongoDB:   mongodb://localhost:27017
+```
+
+### Files created
+
+```
+docker-compose.yml
+.dockerignore
+.env.example          (updated — documented all variables)
+frontend/Dockerfile   (multi-stage: development / build / production)
+frontend/.dockerignore
+frontend/vite.config.ts  (updated — host: true, port: 5173)
+backend/Dockerfile
+backend/.dockerignore
+docs/DOCKER.md        (full developer guide)
+.gitignore            (updated — frontend/.env, docker-compose.override.yml)
+```
+
+### Environment configuration
+
+- Root `.env.example` documents all variables with comments.
+- `MONGODB_URI`, `GOOGLE_API_KEY`, `DEVFLOW_WORKSPACE` are backend-only.
+- `VITE_API_BASE_URL` is the only frontend env variable.
+- No secrets are committed to the repository.
+
+### WebSocket
+
+uvicorn supports WebSocket natively. No proxy configuration required.
+Frontend connects to `ws://localhost:8000/api/v1/ws/workflows/{id}`.
+
+### Known issues / limitations
+
+- MongoDB driver (`motor` or `pymongo`) not yet in `requirements.txt` — the
+  backend does not use MongoDB yet (Phase 5+). The `MONGODB_URI` environment
+  variable is wired and ready; the driver will be added when MongoDB
+  integration is implemented.
+- `GOOGLE_API_KEY` and `DEVFLOW_WORKSPACE` are passed through to the backend
+  container but not yet consumed by the application code.
+- Frontend `App.tsx` is currently the plain Vite scaffold (Phase 5 UI files
+  were removed externally). The Dockerfile and Compose configuration are
+  correct and will work with any future frontend code.
+
+### Next
+
+Phase 6 (when approved).
+
+---
+

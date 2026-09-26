@@ -1,0 +1,26 @@
+# Dependencies — never copy into the image
+node_modules
+npm-debug.log*
+
+# Build output — not needed in dev image; build stage has its own COPY
+dist
+dist-ssr
+
+# Version control
+.git
+.gitignore
+
+# Environment files — secrets must not land in the image
+.env
+.env.*
+!.env.example
+
+# Editor artefacts
+.vscode
+.idea
+*.suo
+*.sw?
+.DS_Store
+
+# OS artefacts
+Thumbs.db

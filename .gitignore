@@ -34,3 +34,12 @@ build/
 
 # DevFlow AI session output
 devflow_sessions/
+
+
+# Frontend env files
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Docker
+docker-compose.override.yml

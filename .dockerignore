@@ -1,0 +1,30 @@
+# =============================================================================
+# Root .dockerignore — applies when building images from the project root.
+# Each subdirectory also has its own .dockerignore for service-specific builds.
+# =============================================================================
+
+# Version control
+.git
+.gitignore
+
+# Environment files — secrets must not land in any image
+.env
+.env.*
+!.env.example
+
+# Documentation (not needed at runtime)
+docs
+
+# Sample project (not part of the containerised application)
+sample-project
+
+# IDE artefacts
+.vscode
+.idea
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# DevFlow session output
+devflow_sessions

@@ -1,0 +1,112 @@
+# =============================================================================
+# DevFlow AI — Docker Compose
+#
+# Services:
+#   frontend  — Vite dev server          http://localhost:5173
+#   backend   — FastAPI / uvicorn        http://localhost:8000
+#   mongodb   — MongoDB 7                mongodb://localhost:27017
+#
+# Usage:
+#   docker compose up --build     # start all services (build first)
+#   docker compose up -d          # start in background
+#   docker compose down           # stop and remove containers (data preserved)
+#   docker compose down -v        # stop and REMOVE volumes (data deleted)
+#   docker compose logs -f        # tail all logs
+#   docker compose logs -f backend
+# =============================================================================
+
+services:
+
+  # ── MongoDB ────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: devflow_mongodb
+    restart: unless-stopped
+    ports:
+      # Exposed to host for optional local DB inspection (e.g. MongoDB Compass).
+      # Remove this port mapping if direct host access is not needed.
+      - "27017:27017"
+    volumes:
+      # Named volume: data survives `docker compose down`.
+      # Use `docker compose down -v` to remove volumes and wipe data.
+      - mongodb_data:/data/db
+    networks:
+      - devflow_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: devflow_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Application
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # CORS — allows the frontend dev server to call the API.
+      # Add more origins separated by commas if needed.
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:5173}
+      # MongoDB — uses the Compose service name, NOT localhost.
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/devflowai}
+      # Google / AI provider key (optional until AI integration phase)
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      # DevFlow workspace path (used by the agent when running locally)
+      DEVFLOW_WORKSPACE: ${DEVFLOW_WORKSPACE:-}
+    volumes:
+      # Source mount enables --reload (hot reload) without rebuilding the image.
+      - ./backend:/app
+      # Prevent the host's .venv from shadowing the image's site-packages.
+      - /app/.venv
+    networks:
+      - devflow_net
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # Use the development stage (hot reload via Vite).
+      target: development
+    container_name: devflow_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      # Public API base URL — seen by the browser, not the container network.
+      # Must point to where the HOST can reach the backend.
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    volumes:
+      # Source mount for Vite hot-module replacement.
+      - ./frontend:/app
+      # Prevent the host's node_modules from overriding the image's modules.
+      - /app/node_modules
+    networks:
+      - devflow_net
+    depends_on:
+      - backend
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  mongodb_data:
+    name: devflow_mongodb_data
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  devflow_net:
+    name: devflow_network
