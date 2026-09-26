@@ -181,14 +181,14 @@ class TestSessionManager:
 class TestOrchestratorPhase2:
     def test_run_produces_project_context_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         ctx_path = Path(result["project_context"])
         assert ctx_path.exists(), "project_context.json was not created"
 
     def test_project_context_json_is_valid(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         data = json.loads(Path(result["project_context"]).read_text())
         assert "repository_path" in data
@@ -198,14 +198,14 @@ class TestOrchestratorPhase2:
 
     def test_run_produces_execution_plan_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         plan_path = Path(result["execution_plan"])
         assert plan_path.exists(), "execution_plan.json was not created"
 
     def test_execution_plan_json_is_valid(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         data = json.loads(Path(result["execution_plan"]).read_text())
         assert "tasks" in data
@@ -213,13 +213,13 @@ class TestOrchestratorPhase2:
 
     def test_workflow_reaches_complete_stage(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         orch.run()
         assert orch.state.stage == WorkflowStage.COMPLETE
 
     def test_session_log_is_created(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         session_dir = Path(result["project_context"]).parent
         log_path = session_dir / "session.log"
@@ -227,7 +227,7 @@ class TestOrchestratorPhase2:
 
     def test_session_log_contains_audit_entries(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         result = orch.run()
         session_dir = Path(result["project_context"]).parent
         log_content = (session_dir / "session.log").read_text()

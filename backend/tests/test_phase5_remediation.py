@@ -16,8 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from app.models.finding import FixRisk, Severity, SourceAgent
-from app.models.finding import Finding
+from app.models.finding import Finding, FixRisk, Severity, SourceAgent
 from app.models.fix_proposal import FixProposal, ProposalStatus
 from app.services.approval_gate import ApprovalGate
 from app.services.code_modifier import CodeModifier, _apply_unified_diff
@@ -264,17 +263,12 @@ class TestIntegration1ApproveAndApply:
         original = target.read_text()
 
         # Use the unused-import fix (safe, concrete diff)
-        from app.services.orchestrator import Orchestrator
-        orch = Orchestrator(
-            str(repo_copy),
-            decisions={},  # start with all skipped
-        )
-        # Run only through fix planner to get the proposal IDs
-        from app.services.fix_planner import FixPlanner
-        from app.services.repository_inspector import RepositoryInspector
         from app.agents.code_review import CodeReviewAgent
-        from app.services.issue_prioritizer import IssuePrioritizer
         from app.services.finding_aggregator import FindingAggregator
+        from app.services.fix_planner import FixPlanner
+        from app.services.issue_prioritizer import IssuePrioritizer
+        from app.services.orchestrator import Orchestrator
+        from app.services.repository_inspector import RepositoryInspector
 
         ctx = RepositoryInspector().inspect(str(repo_copy))
         findings = IssuePrioritizer().prioritize(
@@ -288,7 +282,6 @@ class TestIntegration1ApproveAndApply:
             pytest.skip("No proposal with a diff found — skipping apply test")
 
         # Now run the full orchestrator approving only that proposal
-        from app.services.session_manager import SESSIONS_ROOT
         orch2 = Orchestrator(str(repo_copy), decisions={good.finding_id: ProposalStatus.APPROVED})
         result = orch2.run()
 

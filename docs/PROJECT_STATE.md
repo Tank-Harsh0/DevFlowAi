@@ -6,7 +6,7 @@
 
 ## Current Phase
 
-Phase 0 — Planning (Documentation)
+Phase 4 — Aggregation & Prioritization (COMPLETE)
 
 ---
 
@@ -24,23 +24,31 @@ Phase 0 — Planning (Documentation)
 - [x] docs/IMPLEMENTATION_PLAN.md created
 - [x] docs/PROJECT_STATE.md created (this file)
 - [x] docs/METRICS.md created
+- [x] FixProposal model (app/models/fix_proposal.py) — ProposalStatus enum + FixProposal Pydantic model
+- [x] Fix Planner (app/services/fix_planner.py) — generates fix_plan.json from prioritized findings
+- [x] Human Approval Gate (app/services/approval_gate.py) — records approve/skip/reject; interactive + programmatic modes
+- [x] Code Modifier (app/services/code_modifier.py) — backup, apply unified diff, py_compile check, revert on fail
+- [x] Orchestrator wired through FIX_PLANNING → AWAITING_APPROVAL → MODIFYING → COMPLETE
+- [x] Integration test 1: approve fix → file modified + backup exists (PASSED)
+- [x] Integration test 2: reject fix → file unchanged (PASSED)
+- [x] Integration test 3: bad fix → syntax error → reverted from backup (PASSED)
 
 ---
 
 ## Currently Working On
 
-Nothing. Phase 0 is complete. Waiting for explicit approval to begin Phase 1.
+Nothing. Phase 4 is complete. Waiting for explicit approval to begin Phase 5.
 
 ---
 
 ## Next Task
 
-Phase 1 — Foundation:
-- Confirm IBM Bob 2.0 SDK availability and import mechanism.
-- Create project structure (app/, tests/, devflow/, sample-project/).
-- Create requirements.txt with justified dependencies.
-- Set up logging.
-- Create smoke test.
+Phase 5 — Remediation (requires approval before starting):
+- Implement Fix Planner (generates fix_plan.json from prioritized findings).
+- Implement Human Approval Gate (present each fix, record decision).
+- Implement Code Modifier (apply approved fixes with backup + syntax check).
+- Integration tests: approve fix → file modified; reject fix → file unchanged;
+  bad fix → reverted from backup.
 
 ---
 
@@ -66,15 +74,45 @@ None at this stage. No application code exists yet.
 
 ## Verified
 
-Nothing has been implemented or verified yet.
+Phase 1 — Foundation (2026-09-26):
+- pytest → 8 passed (tests/test_smoke.py, tests/test_health.py)
+- ruff check → All checks passed
+- mypy → no issues found in 6 source files
+- FastAPI startup → GET /health returns correct JSON response
+- Python version: 3.13.0 (satisfies >=3.11 requirement)
+
+Phase 2 — Orchestrator Skeleton (2026-09-26):
+- pytest → 33 passed (all Phase 1 + Phase 2 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 13 source files
+- RepositoryInspector correctly reads sample-project/
+- project_context.json produced with detected_language=python
+- execution_plan.json produced with 4 tasks (all enabled for sample project)
+- session.log created with structured audit entries
+- OrchestratorError raised on invalid repository path
+
+Phase 4 — Aggregation & Prioritization (2026-09-26):
+- pytest → 97 passed (all Phase 1–4 tests; 25 new Phase 4 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 22 source files
+- FindingAggregator: cross-agent dedup, same-agent findings kept separate
+- IssuePrioritizer: Critical→High→Medium→Low, then by file path
+- Detection rate: 11/13 (85%) from prioritized output; 13/13 from agent output
+- METRICS.md updated with measured detection results
+
+Phase 3 — Subagents (2026-09-26):
+- pytest → 72 passed (all Phase 1 + 2 + 3 tests; 39 new Phase 3 tests)
+- ruff check → All checks passed
+- mypy → no issues found in 20 source files
+- Code Review Agent: 6 findings (SP-03,04,07,08,09,13)
+- Test Analysis Agent: ≥7 findings (SP-06 + per-route gaps + SP-10)
+- Security Agent: 3+ findings (SP-01 critical, SP-02 critical, SP-05 high)
+- Documentation Agent: findings for SP-11 (README sections) + SP-12 (docstrings)
+- All findings_*.json written; security_json includes mandatory disclaimer
 
 ---
 
-## Phase 4 — Workflow Visualization and Real-Time Agent Activity ✅
-
-### What was implemented
-
-#### New workflow components (`src/components/workflow/`)
+## Not Yet Verified (Implementation Dependencies)
 
 | Item | Required For |
 |---|---|

@@ -8,8 +8,16 @@ Phase 5 additions:
   - AWAITING_APPROVAL stage: ApprovalGate records decisions → approved_fix_plan.json.
   - MODIFYING stage: CodeModifier applies approved diffs → fix_application_log.json.
   - decisions param on Orchestrator.__init__ for non-interactive (test) use.
+
+Phase 6 additions:
+  - GENERATING_TESTS stage: TestGenerator writes test_devflow_generated.py.
+  - RUNNING_TESTS stage: TestRunner executes pytest → test_results_post_fix.json.
+  - ANALYZING_FAILURES stage: FailureAnalyzer classifies failures → failure_analysis.json.
+  - Iteration logic: max 2 post-fix test runs (WORKFLOW.md Stage 14).
 """
 from __future__ import annotations
+
+from pathlib import Path
 
 from app.agents.code_review import CodeReviewAgent
 from app.agents.documentation import DocumentationAgent
@@ -21,12 +29,16 @@ from app.models.fix_proposal import FixProposal, ProposalStatus
 from app.models.workflow import ExecutionPlan, ProjectContext, WorkflowStage, WorkflowState
 from app.services.approval_gate import ApprovalGate
 from app.services.code_modifier import CodeModifier
+from app.services.failure_analyzer import FailureAnalyzer
 from app.services.finding_aggregator import FindingAggregator
 from app.services.fix_planner import FixPlanner
 from app.services.issue_prioritizer import IssuePrioritizer
+from app.services.report_generator import ReportGenerator
 from app.services.repository_inspector import RepositoryInspector
 from app.services.session_manager import SessionManager
 from app.services.task_planner import TaskPlanner
+from app.services.test_generator import TestGenerator
+from app.services.test_runner import PytestRunner
 
 logger = get_logger(__name__)
 
@@ -71,6 +83,9 @@ class Orchestrator:
         self._prioritizer = IssuePrioritizer()
         self._fix_planner = FixPlanner()
         self._approval_gate = ApprovalGate(decisions=decisions)
+        self._test_generator = TestGenerator()
+        self._failure_analyzer = FailureAnalyzer()
+        self._report_generator = ReportGenerator()
         self._agents = {
             "code_review": CodeReviewAgent(),
             "test_analysis": TestingAnalysisAgent(),
@@ -110,6 +125,10 @@ class Orchestrator:
             proposals     = self._run_fix_planning(prioritized, context)
             approved      = self._run_approval(proposals)
             applied       = self._run_modification(approved)
+            generated        = self._run_test_generation(prioritized, context)
+            test_results     = self._run_tests(label="post_fix")
+            failure_analysis = self._run_failure_analysis(test_results)
+            report_path      = self._run_reporting()
             self._transition(WorkflowStage.COMPLETE)
             return {
                 "session_id": self.session_id,
@@ -126,6 +145,11 @@ class Orchestrator:
                 "applied_fixes": sum(
                     1 for p in applied if p.status == ProposalStatus.APPLIED
                 ),
+                "generated_tests": len(generated),
+                "tests_passed": test_results.get("passed", 0),
+                "tests_failed": test_results.get("failed", 0),
+                "in_scope_failures": failure_analysis.get("in_scope", 0),
+                "report": str(report_path),
             }
         except OrchestratorError:
             raise
@@ -309,6 +333,82 @@ class Orchestrator:
             f"Code Modifier complete: {n_applied} applied, {n_failed} failed",
         )
         return updated
+
+    def _run_test_generation(
+        self, prioritized: list[Finding], context: ProjectContext
+    ) -> list[str]:
+        """GENERATING_TESTS stage — write test_devflow_generated.py."""
+        self._transition(WorkflowStage.GENERATING_TESTS)
+        self._session.log("INFO", "Orchestrator", "Test Generator starting")
+
+        # Generated tests live inside the target repository's tests/ directory
+        output_path = Path(self._repo_path) / "tests" / "test_devflow_generated.py"
+        generated = self._test_generator.generate(prioritized, context, output_path)
+
+        self._session.write_json(
+            "generated_tests_manifest.json",
+            {"output_file": str(output_path), "functions": generated},
+        )
+        self._session.log(
+            "INFO", "Orchestrator",
+            f"Test Generator complete: {len(generated)} test function(s) written to {output_path}",
+        )
+        return generated
+
+    def _run_tests(self, label: str = "post_fix") -> dict[str, object]:
+        """RUNNING_TESTS stage — execute pytest and capture results."""
+        self._transition(WorkflowStage.RUNNING_TESTS)
+        self._session.log(
+            "INFO", "Orchestrator",
+            f"Test Runner starting (label={label})",
+        )
+
+        runner = PytestRunner(self._repo_path)
+        results = runner.run()
+
+        filename = f"test_results_{label}.json"
+        self._session.write_json(filename, results)
+        self._session.log(
+            "INFO", "Orchestrator",
+            f"Test Runner complete: {results.get('passed', 0)} passed, "
+            f"{results.get('failed', 0)} failed, "
+            f"{results.get('error', 0)} error in {results.get('duration_seconds', 0):.1f}s",
+        )
+        return results
+
+    def _run_failure_analysis(
+        self, test_results: dict[str, object]
+    ) -> dict[str, object]:
+        """ANALYZING_FAILURES stage — classify failed tests."""
+        self._transition(WorkflowStage.ANALYZING_FAILURES)
+        self._session.log("INFO", "Orchestrator", "Failure Analyzer starting")
+
+        analysis = self._failure_analyzer.analyze(test_results)
+
+        self._session.write_json("failure_analysis.json", analysis)
+        self._session.log(
+            "INFO", "Orchestrator",
+            f"Failure Analyzer complete: {analysis.get('total_failures', 0)} failure(s), "
+            f"{analysis.get('in_scope', 0)} in scope",
+        )
+        return analysis
+
+    def _run_reporting(self) -> Path:
+        """REPORTING stage — assemble final_report.md from all session artefacts."""
+        self._transition(WorkflowStage.REPORTING)
+        self._session.log("INFO", "Orchestrator", "Report Generator starting")
+
+        report_path = self._report_generator.generate(
+            session_dir=self._session.session_dir,
+            repository_root=self._repo_path,
+            session_id=self.session_id,
+        )
+
+        self._session.log(
+            "INFO", "Orchestrator",
+            f"Report Generator complete: {report_path}",
+        )
+        return report_path
 
     def _run_planning(self, context: ProjectContext) -> ExecutionPlan:
         self._transition(WorkflowStage.PLANNING)

@@ -217,21 +217,21 @@ class TestOrchestratorPhase4:
     def test_run_produces_deduplicated_findings_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "deduplicated_findings.json").exists()
 
     def test_run_produces_prioritized_findings_json(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         assert (session_dir / "prioritized_findings.json").exists()
 
     def test_deduplicated_json_is_valid_finding_list(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         raw = json.loads((session_dir / "deduplicated_findings.json").read_text())
         assert isinstance(raw, list)
@@ -243,7 +243,7 @@ class TestOrchestratorPhase4:
         """First finding must be Critical or High — the most severe issues are first."""
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         raw = json.loads((session_dir / "prioritized_findings.json").read_text())
         first_severity = raw[0]["severity"]
@@ -255,7 +255,7 @@ class TestOrchestratorPhase4:
         """No finding of lower severity should appear before a higher-severity finding."""
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         raw = json.loads((session_dir / "prioritized_findings.json").read_text())
         order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -268,7 +268,7 @@ class TestOrchestratorPhase4:
     def test_result_dict_has_finding_counts(self, tmp_path, monkeypatch):
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         assert "raw_findings" in result
         assert "deduplicated_findings" in result
         assert "prioritized_findings" in result
@@ -278,7 +278,7 @@ class TestOrchestratorPhase4:
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.models.workflow import WorkflowStage
         from app.services.orchestrator import Orchestrator
-        orch = Orchestrator(str(SAMPLE_PROJECT))
+        orch = Orchestrator(str(SAMPLE_PROJECT), decisions={})
         orch.run()
         assert orch.state.stage == WorkflowStage.COMPLETE
 
@@ -320,7 +320,7 @@ class TestDetectionRate:
         monkeypatch.setattr("app.services.session_manager.SESSIONS_ROOT", tmp_path)
         from app.services.orchestrator import Orchestrator
 
-        result = Orchestrator(str(SAMPLE_PROJECT)).run()
+        result = Orchestrator(str(SAMPLE_PROJECT), decisions={}).run()
         session_dir = Path(result["project_context"]).parent
         all_findings = json.loads(
             (session_dir / "prioritized_findings.json").read_text()
