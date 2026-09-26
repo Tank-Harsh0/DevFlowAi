@@ -6,6 +6,12 @@ Phase 1: Foundation.
   - Health endpoint.
   - Consistent error response structure.
   - Logging initialised on startup.
+
+Phase 6+ API:
+  - /api/v1/repositories  — CRUD for registered repositories
+  - /api/v1/workflows     — Start/monitor/approve workflow runs
+  - /api/v1/findings      — List/approve/reject findings
+  - /api/v1/reports       — Access final reports
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.routers import findings, reports, repositories, workflows
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 
@@ -92,7 +99,7 @@ def create_app() -> FastAPI:
         )
 
     # -----------------------------------------------------------------------
-    # Routes
+    # Routes — health
     # -----------------------------------------------------------------------
 
     @application.get("/health", tags=["Health"])
@@ -108,6 +115,16 @@ def create_app() -> FastAPI:
             "version": settings.app_version,
             "environment": settings.app_env,
         }
+
+    # -----------------------------------------------------------------------
+    # Routes — API v1
+    # -----------------------------------------------------------------------
+
+    API_PREFIX = "/api/v1"
+    application.include_router(repositories.router, prefix=API_PREFIX)
+    application.include_router(workflows.router,    prefix=API_PREFIX)
+    application.include_router(findings.router,     prefix=API_PREFIX)
+    application.include_router(reports.router,      prefix=API_PREFIX)
 
     return application
 
