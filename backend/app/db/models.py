@@ -39,6 +39,7 @@ class UserDoc(Document):
 
 class RepositoryDoc(Document):
     repo_id: Indexed(str, unique=True)  # type: ignore[valid-type]  # the UUID we expose to clients
+    owner_id: Indexed(str)  # type: ignore[valid-type]  # str(UserDoc.id)
     name: str
     url: str
     description: str | None = None
@@ -62,6 +63,7 @@ class RepositoryDoc(Document):
 
 class WorkflowRunDoc(Document):
     run_id: Indexed(str, unique=True)  # type: ignore[valid-type]
+    owner_id: Indexed(str)  # type: ignore[valid-type]
     repository_id: str
     repository_name: str
     status: str = "pending"
@@ -85,6 +87,7 @@ class WorkflowRunDoc(Document):
 
 class FindingDoc(Document):
     finding_id: Indexed(str, unique=True)  # type: ignore[valid-type]
+    owner_id: Indexed(str)  # type: ignore[valid-type]
     workflow_id: Indexed(str)  # type: ignore[valid-type]
     severity: str
     status: str
@@ -110,6 +113,7 @@ class FindingDoc(Document):
 
 class ReportDoc(Document):
     report_id: Indexed(str, unique=True)  # type: ignore[valid-type]
+    owner_id: Indexed(str)  # type: ignore[valid-type]
     workflow_id: Indexed(str, unique=True)  # type: ignore[valid-type]
     repository_id: str
     repository_name: str

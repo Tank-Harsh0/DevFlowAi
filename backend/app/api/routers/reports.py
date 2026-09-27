@@ -15,17 +15,17 @@ router = APIRouter(prefix="/reports", tags=["Reports"])
 
 @router.get("", response_model=list[ReportOut])
 async def list_reports_route(
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> list[ReportOut]:
-    return await list_reports()
+    return await list_reports(owner_id=str(current_user.id))
 
 
 @router.get("/{report_id}", response_model=ReportOut)
 async def get_report_route(
     report_id: str,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> ReportOut:
-    report = await get_report(report_id)
+    report = await get_report(report_id, owner_id=str(current_user.id))
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return report

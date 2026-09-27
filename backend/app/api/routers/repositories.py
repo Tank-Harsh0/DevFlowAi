@@ -22,15 +22,15 @@ def _now() -> str:
 
 @router.get("", response_model=list[RepositoryOut])
 async def list_repos(
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> list[RepositoryOut]:
-    return await list_repositories()
+    return await list_repositories(owner_id=str(current_user.id))
 
 
 @router.post("", response_model=RepositoryOut, status_code=201)
 async def add_repository(
     body: AddRepositoryRequest,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> RepositoryOut:
     now = _now()
     name = body.name or body.url.rstrip("/").split("/")[-1]
@@ -43,7 +43,7 @@ async def add_repository(
         createdAt=now,
         updatedAt=now,
     )
-    await save_repository(repo)
+    await save_repository(repo, owner_id=str(current_user.id))
     logger.info("Repository registered: %s (%s)", name, repo.id)
     return repo
 
@@ -51,9 +51,9 @@ async def add_repository(
 @router.get("/{repository_id}", response_model=RepositoryOut)
 async def get_repo(
     repository_id: str,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> RepositoryOut:
-    repo = await get_repository(repository_id)
+    repo = await get_repository(repository_id, owner_id=str(current_user.id))
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
     return repo
@@ -62,8 +62,8 @@ async def get_repo(
 @router.delete("/{repository_id}", status_code=204)
 async def remove_repository(
     repository_id: str,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> None:
-    if not await delete_repository(repository_id):
+    if not await delete_repository(repository_id, owner_id=str(current_user.id)):
         raise HTTPException(status_code=404, detail="Repository not found")
     logger.info("Repository removed: %s", repository_id)

@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from app.api.routers import findings, reports, repositories, workflows
 from app.api.routers import ws as ws_router
 from app.api.routers import auth as auth_router
+from app.api.store import set_loop as store_set_loop
 from app.api.ws_broker import ws_broker
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
@@ -44,7 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     import asyncio
     configure_logging()
     await init_db()
-    ws_broker.set_loop(asyncio.get_running_loop())
+    _loop = asyncio.get_running_loop()
+    ws_broker.set_loop(_loop)
+    store_set_loop(_loop)
     logger.info("Starting %s v%s (%s)", settings.app_name, settings.app_version, settings.app_env)
     yield
     await close_db()

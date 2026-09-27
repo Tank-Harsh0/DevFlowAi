@@ -131,20 +131,24 @@ def _report_to_out(doc: ReportDoc) -> ReportOut:
 # Repository CRUD
 # ---------------------------------------------------------------------------
 
-async def list_repositories() -> list[RepositoryOut]:
-    docs = await RepositoryDoc.find_all().to_list()
+async def list_repositories(owner_id: str) -> list[RepositoryOut]:
+    docs = await RepositoryDoc.find(RepositoryDoc.owner_id == owner_id).to_list()
     return [_repo_to_out(d) for d in docs]
 
 
-async def get_repository(repo_id: str) -> RepositoryOut | None:
-    doc = await RepositoryDoc.find_one(RepositoryDoc.repo_id == repo_id)
+async def get_repository(repo_id: str, owner_id: str | None = None) -> RepositoryOut | None:
+    conditions = [RepositoryDoc.repo_id == repo_id]
+    if owner_id is not None:
+        conditions.append(RepositoryDoc.owner_id == owner_id)
+    doc = await RepositoryDoc.find_one(*conditions)
     return _repo_to_out(doc) if doc else None
 
 
-async def save_repository(out: RepositoryOut) -> None:
+async def save_repository(out: RepositoryOut, owner_id: str) -> None:
     doc = await RepositoryDoc.find_one(RepositoryDoc.repo_id == out.id)
     data: dict[str, Any] = dict(
         repo_id=out.id,
+        owner_id=owner_id,
         name=out.name,
         url=out.url,
         description=out.description,
@@ -164,8 +168,11 @@ async def save_repository(out: RepositoryOut) -> None:
         await doc.set(data)
 
 
-async def delete_repository(repo_id: str) -> bool:
-    doc = await RepositoryDoc.find_one(RepositoryDoc.repo_id == repo_id)
+async def delete_repository(repo_id: str, owner_id: str) -> bool:
+    doc = await RepositoryDoc.find_one(
+        RepositoryDoc.repo_id == repo_id,
+        RepositoryDoc.owner_id == owner_id,
+    )
     if doc is None:
         return False
     await doc.delete()
@@ -176,22 +183,27 @@ async def delete_repository(repo_id: str) -> bool:
 # Workflow CRUD
 # ---------------------------------------------------------------------------
 
-async def list_workflows(repository_id: str | None = None) -> list[WorkflowRunOut]:
-    query = WorkflowRunDoc.find_all() if not repository_id else \
-        WorkflowRunDoc.find(WorkflowRunDoc.repository_id == repository_id)
-    docs = await query.sort(-WorkflowRunDoc.created_at).to_list()
+async def list_workflows(owner_id: str, repository_id: str | None = None) -> list[WorkflowRunOut]:
+    conditions = [WorkflowRunDoc.owner_id == owner_id]
+    if repository_id:
+        conditions.append(WorkflowRunDoc.repository_id == repository_id)
+    docs = await WorkflowRunDoc.find(*conditions).sort(-WorkflowRunDoc.created_at).to_list()
     return [_workflow_to_out(d) for d in docs]
 
 
-async def get_workflow(workflow_id: str) -> WorkflowRunOut | None:
-    doc = await WorkflowRunDoc.find_one(WorkflowRunDoc.run_id == workflow_id)
+async def get_workflow(workflow_id: str, owner_id: str | None = None) -> WorkflowRunOut | None:
+    conditions = [WorkflowRunDoc.run_id == workflow_id]
+    if owner_id is not None:
+        conditions.append(WorkflowRunDoc.owner_id == owner_id)
+    doc = await WorkflowRunDoc.find_one(*conditions)
     return _workflow_to_out(doc) if doc else None
 
 
-async def save_workflow(out: WorkflowRunOut) -> None:
+async def save_workflow(out: WorkflowRunOut, owner_id: str) -> None:
     doc = await WorkflowRunDoc.find_one(WorkflowRunDoc.run_id == out.id)
     data: dict[str, Any] = dict(
         run_id=out.id,
+        owner_id=owner_id,
         repository_id=out.repositoryId,
         repository_name=out.repositoryName,
         status=out.status.value if hasattr(out.status, "value") else out.status,
@@ -216,13 +228,14 @@ async def save_workflow(out: WorkflowRunOut) -> None:
 # ---------------------------------------------------------------------------
 
 async def list_findings(
+    owner_id: str,
     workflow_id: str | None = None,
     severity: str | None = None,
     agent: str | None = None,
     status: str | None = None,
     file: str | None = None,
 ) -> list[FindingOut]:
-    conditions = []
+    conditions: list[Any] = [FindingDoc.owner_id == owner_id]
     if workflow_id:
         conditions.append(FindingDoc.workflow_id == workflow_id)
     if severity:
@@ -232,7 +245,7 @@ async def list_findings(
     if status:
         conditions.append(FindingDoc.status == status)
 
-    docs = await (FindingDoc.find(*conditions) if conditions else FindingDoc.find_all()).to_list()
+    docs = await FindingDoc.find(*conditions).to_list()
     outs = [_finding_to_out(d) for d in docs]
     if file:
         outs = [f for f in outs if file in f.location.file]
@@ -242,12 +255,15 @@ async def list_findings(
     ))
 
 
-async def get_finding(finding_id: str) -> FindingOut | None:
-    doc = await FindingDoc.find_one(FindingDoc.finding_id == finding_id)
+async def get_finding(finding_id: str, owner_id: str | None = None) -> FindingOut | None:
+    conditions = [FindingDoc.finding_id == finding_id]
+    if owner_id is not None:
+        conditions.append(FindingDoc.owner_id == owner_id)
+    doc = await FindingDoc.find_one(*conditions)
     return _finding_to_out(doc) if doc else None
 
 
-async def save_finding(out: FindingOut) -> None:
+async def save_finding(out: FindingOut, owner_id: str) -> None:
     doc = await FindingDoc.find_one(FindingDoc.finding_id == out.id)
     fp_dict: dict[str, Any] | None = None
     if out.fixProposal:
@@ -255,6 +271,7 @@ async def save_finding(out: FindingOut) -> None:
 
     data: dict[str, Any] = dict(
         finding_id=out.id,
+        owner_id=owner_id,
         workflow_id=out.workflowId,
         severity=out.severity.value if hasattr(out.severity, "value") else out.severity,
         status=out.status.value if hasattr(out.status, "value") else out.status,
@@ -276,9 +293,10 @@ async def save_finding(out: FindingOut) -> None:
         await doc.set(data)
 
 
-async def get_finding_ids(workflow_id: str) -> list[str]:
+async def get_finding_ids(workflow_id: str, owner_id: str) -> list[str]:
     docs = await FindingDoc.find(
         FindingDoc.workflow_id == workflow_id,
+        FindingDoc.owner_id == owner_id,
     ).project(FindingDoc).to_list()
     return [d.finding_id for d in docs]
 
@@ -287,25 +305,32 @@ async def get_finding_ids(workflow_id: str) -> list[str]:
 # Report CRUD
 # ---------------------------------------------------------------------------
 
-async def list_reports() -> list[ReportOut]:
-    docs = await ReportDoc.find_all().sort(-ReportDoc.generated_at).to_list()
+async def list_reports(owner_id: str) -> list[ReportOut]:
+    docs = await ReportDoc.find(ReportDoc.owner_id == owner_id).sort(-ReportDoc.generated_at).to_list()
     return [_report_to_out(d) for d in docs]
 
 
-async def get_report(report_id: str) -> ReportOut | None:
-    doc = await ReportDoc.find_one(ReportDoc.report_id == report_id)
+async def get_report(report_id: str, owner_id: str | None = None) -> ReportOut | None:
+    conditions = [ReportDoc.report_id == report_id]
+    if owner_id is not None:
+        conditions.append(ReportDoc.owner_id == owner_id)
+    doc = await ReportDoc.find_one(*conditions)
     return _report_to_out(doc) if doc else None
 
 
-async def get_report_by_workflow(workflow_id: str) -> ReportOut | None:
-    doc = await ReportDoc.find_one(ReportDoc.workflow_id == workflow_id)
+async def get_report_by_workflow(workflow_id: str, owner_id: str | None = None) -> ReportOut | None:
+    conditions = [ReportDoc.workflow_id == workflow_id]
+    if owner_id is not None:
+        conditions.append(ReportDoc.owner_id == owner_id)
+    doc = await ReportDoc.find_one(*conditions)
     return _report_to_out(doc) if doc else None
 
 
-async def save_report(out: ReportOut) -> None:
+async def save_report(out: ReportOut, owner_id: str) -> None:
     doc = await ReportDoc.find_one(ReportDoc.report_id == out.id)
     data: dict[str, Any] = dict(
         report_id=out.id,
+        owner_id=owner_id,
         workflow_id=out.workflowId,
         repository_id=out.repositoryId,
         repository_name=out.repositoryName,
@@ -324,44 +349,63 @@ async def save_report(out: ReportOut) -> None:
 # Routes the sync orchestrator thread into the running async event loop.
 # ---------------------------------------------------------------------------
 
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+
+def set_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Capture the main event loop at startup for use by background threads."""
+    global _main_loop
+    _main_loop = loop
+
+
 def _run(coro):  # type: ignore[no-untyped-def]
     """Submit a coroutine to the running event loop from a non-async thread."""
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
-        return future.result(timeout=30)
-    return asyncio.run(coro)
+    if _main_loop is None:
+        raise RuntimeError("store.set_loop() has not been called — call it in the app lifespan")
+    future = asyncio.run_coroutine_threadsafe(coro, _main_loop)
+    return future.result(timeout=30)
 
 
 class _BGStore:
-    """Sync façade used by the background orchestrator thread."""
+    """Sync façade used by the background orchestrator thread.
+
+    owner_id is captured once at workflow-start time and stored so the
+    background thread can write owner-scoped documents without needing to
+    carry the user object through the entire pipeline.
+    """
+
+    def __init__(self) -> None:
+        self._owner_id: str = ""
+
+    def set_owner(self, owner_id: str) -> None:
+        self._owner_id = owner_id
 
     def get_repo(self, repo_id: str) -> RepositoryOut | None:
-        return _run(get_repository(repo_id))
+        return _run(get_repository(repo_id, owner_id=self._owner_id))
 
     def set_repo(self, out: RepositoryOut) -> None:
-        _run(save_repository(out))
+        _run(save_repository(out, owner_id=self._owner_id))
 
     def get_workflow(self, workflow_id: str) -> WorkflowRunOut | None:
         return _run(get_workflow(workflow_id))
 
     def set_workflow(self, out: WorkflowRunOut) -> None:
-        _run(save_workflow(out))
+        _run(save_workflow(out, owner_id=self._owner_id))
 
     def get_finding_ids(self, workflow_id: str) -> list[str]:
-        return _run(get_finding_ids(workflow_id))
+        return _run(get_finding_ids(workflow_id, owner_id=self._owner_id))
 
     def get_finding(self, finding_id: str) -> FindingOut | None:
         return _run(get_finding(finding_id))
 
     def set_finding(self, out: FindingOut) -> None:
-        _run(save_finding(out))
+        _run(save_finding(out, owner_id=self._owner_id))
 
     def get_report_by_workflow(self, workflow_id: str) -> ReportOut | None:
         return _run(get_report_by_workflow(workflow_id))
 
     def set_report(self, out: ReportOut) -> None:
-        _run(save_report(out))
+        _run(save_report(out, owner_id=self._owner_id))
 
 
 store = _BGStore()

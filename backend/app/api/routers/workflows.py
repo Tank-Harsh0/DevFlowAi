@@ -94,9 +94,9 @@ def _make_steps(status: WorkflowStatus = WorkflowStatus.PENDING) -> list[AgentSt
 @router.get("", response_model=list[WorkflowRunOut])
 async def list_workflows_route(
     repositoryId: str | None = None,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> list[WorkflowRunOut]:
-    return await list_workflows(repository_id=repositoryId)
+    return await list_workflows(owner_id=str(current_user.id), repository_id=repositoryId)
 
 
 def _resolve_repo_path(run_id: str, url: str) -> str:
@@ -130,9 +130,10 @@ def _resolve_repo_path(run_id: str, url: str) -> str:
 @router.post("", response_model=WorkflowRunOut, status_code=201)
 async def start_workflow(
     body: StartWorkflowRequest,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> WorkflowRunOut:
-    repo = await get_repository(body.repositoryId)
+    owner_id = str(current_user.id)
+    repo = await get_repository(body.repositoryId, owner_id=owner_id)
     if repo is None:
         raise HTTPException(status_code=404, detail="Repository not found")
 
@@ -149,11 +150,12 @@ async def start_workflow(
         steps=_make_steps(WorkflowStatus.PENDING),
         currentStep="inspecting",
     )
-    await save_workflow(run)
+    await save_workflow(run, owner_id=owner_id)
 
     updated_repo = repo.model_copy(update={"status": "analyzing", "updatedAt": now})
-    await save_repository(updated_repo)
+    await save_repository(updated_repo, owner_id=owner_id)
 
+    store.set_owner(owner_id)
     thread = threading.Thread(target=_run_orchestrator, args=(run_id, repo.url), daemon=True)
     thread.start()
 
@@ -164,9 +166,9 @@ async def start_workflow(
 @router.get("/{workflow_id}", response_model=WorkflowRunOut)
 async def get_workflow_route(
     workflow_id: str,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> WorkflowRunOut:
-    run = await get_workflow(workflow_id)
+    run = await get_workflow(workflow_id, owner_id=str(current_user.id))
     if run is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
     return run
@@ -177,9 +179,10 @@ async def submit_approval(
     workflow_id: str,
     step_id: str,
     body: ApprovalRequest,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> dict[str, str]:
-    run = await get_workflow(workflow_id)
+    owner_id = str(current_user.id)
+    run = await get_workflow(workflow_id, owner_id=owner_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
@@ -195,7 +198,7 @@ async def submit_approval(
             updated_steps.append(step)
 
     updated_run = run.model_copy(update={"steps": updated_steps, "updatedAt": _now()})
-    await save_workflow(updated_run)
+    await save_workflow(updated_run, owner_id=owner_id)
 
     logger.info("Approval for workflow %s step %s: %s", workflow_id, step_id, body.approved)
     return {"status": "recorded"}
@@ -204,9 +207,9 @@ async def submit_approval(
 @router.get("/{workflow_id}/report", response_model=ReportOut)
 async def get_workflow_report(
     workflow_id: str,
-    _: UserDoc = Depends(get_current_user),
+    current_user: UserDoc = Depends(get_current_user),
 ) -> ReportOut:
-    report = await get_report_by_workflow(workflow_id)
+    report = await get_report_by_workflow(workflow_id, owner_id=str(current_user.id))
     if report is None:
         raise HTTPException(status_code=404, detail="Report not available yet")
     return report

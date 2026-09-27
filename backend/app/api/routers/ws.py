@@ -22,9 +22,10 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.api.store import store
+from app.api.store import get_workflow
 from app.api.ws_broker import ws_broker
 from app.core.logging import get_logger
+from app.db.models import UserDoc
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["WebSocket"])
@@ -38,10 +39,33 @@ def _now() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+async def _auth_websocket(websocket: WebSocket) -> UserDoc | None:
+    """Authenticate a WebSocket connection via ?token= query parameter."""
+    from app.core.security import decode_access_token
+    from jose import JWTError
+    token = websocket.query_params.get("token")
+    if not token:
+        return None
+    try:
+        user_id = decode_access_token(token)
+    except (JWTError, Exception):
+        return None
+    user = await UserDoc.get(user_id)
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 @router.websocket("/ws/workflows/{workflow_id}")
 async def workflow_ws(websocket: WebSocket, workflow_id: str) -> None:
     """Stream live WorkflowEvent messages for *workflow_id*."""
-    run = store.workflows.get(workflow_id)
+    user = await _auth_websocket(websocket)
+    if user is None:
+        await websocket.close(code=4401, reason="Unauthorized")
+        return
+
+    owner_id = str(user.id)
+    run = await get_workflow(workflow_id, owner_id=owner_id)
     if run is None:
         # Reject unknown workflow IDs with 404 close code.
         await websocket.close(code=4404, reason="Workflow not found")
@@ -54,7 +78,7 @@ async def workflow_ws(websocket: WebSocket, workflow_id: str) -> None:
         async with ws_broker.subscribe(workflow_id) as queue:
             # ── hydration event ──────────────────────────────────────────────
             # Send the current snapshot so the UI renders immediately.
-            initial_run = store.workflows.get(workflow_id)
+            initial_run = await get_workflow(workflow_id, owner_id=owner_id)
             if initial_run:
                 await websocket.send_text(json.dumps({
                     "type": "workflow_update",
@@ -67,7 +91,7 @@ async def workflow_ws(websocket: WebSocket, workflow_id: str) -> None:
             while True:
                 # Check for terminal state *before* blocking on the queue so
                 # we exit cleanly when the workflow finishes with no subscribers.
-                current = store.workflows.get(workflow_id)
+                current = await get_workflow(workflow_id, owner_id=owner_id)
                 if current and current.status in _TERMINAL and queue.empty():
                     # Send a final workflow_update so the UI reflects completion.
                     await websocket.send_text(json.dumps({

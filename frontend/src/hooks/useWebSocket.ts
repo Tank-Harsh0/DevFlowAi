@@ -29,7 +29,11 @@ export function useWebSocket({ workflowId, onEvent, enabled = true }: UseWebSock
     function connect() {
       if (cancelled) return
       setStatus('connecting')
-      const ws = new WebSocket(`${WEBSOCKET_URL}/api/v1/ws/workflows/${workflowId}`)
+      const token = localStorage.getItem('devflow_token')
+      const url = token
+        ? `${WEBSOCKET_URL}/api/v1/ws/workflows/${workflowId}?token=${encodeURIComponent(token)}`
+        : `${WEBSOCKET_URL}/api/v1/ws/workflows/${workflowId}`
+      const ws = new WebSocket(url)
       wsRef.current = ws
 
       ws.onopen = () => {
